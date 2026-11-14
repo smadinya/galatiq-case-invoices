@@ -53,6 +53,8 @@ def settings(tmp_path: Path):
             "db_path": tmp_path / "acme.db",
             "checkpoint_path": tmp_path / "checkpoints.db",
             "log_dir": tmp_path / "logs",
+            # Hermetic: tests never auto-select the committed recordings in fixtures/replay.
+            "replay_dir": tmp_path / "replay",
         }
     )
 

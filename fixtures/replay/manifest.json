@@ -1,0 +1,35 @@
+{
+  "files": {
+    "invoice_1001.txt": "7308ab3d7ff26ee338e16ba304e762f0ac90403958d6211cfab36c94eb14dfd1",
+    "invoice_1002.txt": "c08f8f1d07aa17791fff4b7b25706b011ed230994b9f9058df75f9ef24f9dbd4",
+    "invoice_1003.txt": "7e71c764fee9d01f42417e8091b0ad26e8c5ce4a88231b545486fbd613967e09",
+    "invoice_1004.json": "4cd1081738ded8532a7e5a36107723b26459b165bbf5b6c4bca89c437c13b351",
+    "invoice_1004_revised.json": "4383b9318c589fd835fb247b43fd013c3eab3d0295c55dab72465e71893782d2",
+    "invoice_1005.json": "ab99b9f5a37071378f0c824a63af4776ebafe37be1b04b3e97c4874ebd6a31ac",
+    "invoice_1006.csv": "7f8177bebb8054253fd11f873b63272d36da4068a7c7043dce06143e3f5c35a2",
+    "invoice_1007.csv": "332b4c6464b59d5a286549ae8c0cc69f0eaec8f15665324a32c2a91839e8f2fe",
+    "invoice_1008.txt": "a72eaf616b0f9fdba3266371bc21b77664ee5627511dd98c976329cb9c906a12",
+    "invoice_1009.json": "305a453ed46b0b54f681b58b4ac218cd93057dd4ee14e2110be61c1ce1a072a2",
+    "invoice_1010.txt": "99d9958bf530d30d0766c26a9b1f2ea4810b0da9399ab8da24ec47e764872871",
+    "invoice_1011.pdf": "bf3d624f6dceec42f52ac7129c14fcb975f976dc3ccaba1f07abd4f18c511da6",
+    "invoice_1011.txt": "fce3d019284fe8d5a1453caaf7903d0a7a1fecd00476ed256767575f03382de7",
+    "invoice_1012.pdf": "c20e713fe9e64c90b75b8ac4f38b12c719768c38e86428481e8bec6183035d43",
+    "invoice_1012.txt": "e2a9e555b3bb5563fab5a408451586dc2d1c8e107780c9724ce9309ce96a15f7",
+    "invoice_1013.json": "70b9e1fe4acf7316d5a0e0f0a0922c50ca4492241dd07c704e74c9dc7881d63b",
+    "invoice_1013.pdf": "b9c553d0bf2ed57f8000a34a87cf15c725d43edc08f82d2e3ea1a9aa0379e317",
+    "invoice_1014.xml": "dc80f570bac8007c1f360f0a927371ce1ac3813bc2b0b9758570fc738e48a18b",
+    "invoice_1015.csv": "6cbed47ed55eabedc5aab7d22c8a6e6f067baa5addb96969ab58fe118fcaf7e2",
+    "invoice_1016.json": "fa57af73e932b9a6900b9c7473efc2a8c584f525d9b8feee33052c72b3d0917c"
+  },
+  "models": {
+    "extraction": "grok-4.7",
+    "reasoning": "grok-4.7"
+  },
+  "prompt_versions": {
+    "critic": "critic-v1",
+    "extraction": "extraction-v1",
+    "vp": "vp-v1",
+    "vp_memo": "vp_memo-v1"
+  },
+  "recorded_at": "2026-11-14T23:41:21Z"
+}
