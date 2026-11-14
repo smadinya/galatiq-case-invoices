@@ -15,6 +15,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
+from rich import box
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
@@ -394,13 +395,14 @@ class Renderer:
     # batch ----------------------------------------------------------------
 
     def batch(self, b: BatchResult) -> None:
-        t = Table(title="Batch summary", title_justify="left", header_style="bold")
-        t.add_column("File", overflow="fold")
-        t.add_column("Invoice")
-        t.add_column("Status")
-        t.add_column("Ceiling")
-        t.add_column("Flags", justify="right")
-        t.add_column("Paid", justify="right")
+        t = Table(title="Batch summary", title_justify="left", header_style="bold",
+                  box=box.SIMPLE_HEAD, show_edge=False, padding=(0, 1, 0, 0))
+        t.add_column("File", no_wrap=True, min_width=len(max((r.file for r in b.results), key=len, default="File")))
+        t.add_column("Invoice", no_wrap=True)
+        t.add_column("Status", no_wrap=True, min_width=13)
+        t.add_column("Ceiling", no_wrap=True, min_width=7)
+        t.add_column("Flags", justify="right", no_wrap=True, min_width=5)
+        t.add_column("Paid", justify="right", no_wrap=True)
         for r in b.results:
             err = r.status == Status.ERROR
             paid = money(r.payment.amount, r.payment.currency) if r.payment else "-"
@@ -414,7 +416,8 @@ class Renderer:
                 t.add_row("", Text(r.error, style="red"), "", "", "", "", style="red")
         self.c.print(t)
         counts = b.counts
-        paid_total = sum((r.payment.amount_usd for r in b.results if r.payment and not r.short_circuited), Decimal("0"))
+        paid_total = sum((r.payment.amount_usd for r in b.results if r.payment), Decimal("0"))
+        reused = sum(1 for r in b.results if r.short_circuited)
         pct = round(100 * b.decided_without_person / b.distinct_documents) if b.distinct_documents else 0
         tot = Table.grid(padding=(0, 2))
         tot.add_column(style="bold")
@@ -429,6 +432,9 @@ class Renderer:
                     f"{b.decided_without_person} of {b.distinct_documents} ({pct}%) decided without a person")
         tot.add_row("Budget", f"{money(b.budget.spent)} spent, {money(b.budget.remaining)} of "
                               f"{money(b.budget.limit)} remaining")
+        if reused:
+            tot.add_row("Re-run", Text(f"{reused} file(s) were processed before; their stored results are shown "
+                                       "(nothing was paid twice). Use --reset to start fresh.", style="dim"))
         self.c.print(Panel(tot, title="Totals", title_align="left", border_style="blue"))
         if counts.get("PENDING_HUMAN"):
             self.c.print(Text("Run `python main.py --queue` to see what is waiting for you.", style="magenta"))
@@ -439,9 +445,13 @@ class Renderer:
         if not items:
             self.c.print(Panel("Nothing is waiting for a person.", border_style="green"))
             return
-        t = Table(title="Waiting for a person", title_justify="left", header_style="bold")
-        for col in ("Ref", "Reason", "Recommendation", "Amount", "File"):
-            t.add_column(col, justify="right" if col == "Amount" else "left", overflow="fold")
+        t = Table(title="Waiting for a person", title_justify="left", header_style="bold",
+                  box=box.SIMPLE_HEAD, show_edge=False, padding=(0, 1, 0, 0))
+        t.add_column("Ref", no_wrap=True)
+        t.add_column("Reason", overflow="fold")
+        t.add_column("Recommendation", no_wrap=True)
+        t.add_column("Amount", justify="right", no_wrap=True)
+        t.add_column("File", no_wrap=True)
         for it in items:
             rv = it.review
             t.add_row(Text(it.invoice_ref, style="bold magenta"), rv.reason.value.replace("_", " "),
@@ -449,8 +459,8 @@ class Renderer:
                       money(rv.payment_amount, rv.currency) if rv.payment_amount is not None else "-",
                       it.file_name)
         self.c.print(t)
-        self.c.print(Text('Next: python main.py --resolve REF   (preview), then --approve|--reject --note "..."',
-                          style="dim"))
+        self.c.print(Text("Preview:  python main.py --resolve REF\n"
+                          'Decide:   python main.py --resolve REF --approve|--reject --note "..."', style="dim"))
 
     def preview(self, p: ResolutionPreview) -> None:
         t = Table.grid(padding=(0, 2))
