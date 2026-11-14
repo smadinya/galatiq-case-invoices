@@ -1,0 +1,31 @@
+# config/settings.toml. Money values are strings (parsed as Decimal).
+as_of = 2026-01-31
+default_seed = "demo"
+approval_threshold_usd = "10000"
+near_threshold_min_usd = "9000"
+price_above_catalog_pct = "10"
+math_tolerance_usd = "0.01"
+terms_tolerance_days = 3
+monthly_budget_usd = "50000"
+max_critic_rounds = 3
+max_tool_calls_per_turn = 6
+extraction_retries = 1
+payment_retries = 3          # retries after the first attempt: 4 attempts, sleeps 0.5, 1, 2 (§9 Q8)
+payment_backoff_s = 0.5
+risk_reject_score = 60       # tier 3
+
+[assumptions]                # labelled business assumptions (DESIGN §15)
+annual_invoice_volume = 20000
+baseline_cost_per_invoice_usd = "100"
+
+[paths]                      # relative to the repo root
+db_path = "acme.db"
+checkpoint_path = "checkpoints.db"
+log_dir = "logs"
+replay_dir = "fixtures/replay"
+prompts_dir = "llm/prompts"
+policy_path = "policy.md"
+
+[llm]
+xai_base_url = "https://api.x.ai/v1"
+# Model names come ONLY from env: GROK_EXTRACTION_MODEL, GROK_REASONING_MODEL. No fallbacks.
