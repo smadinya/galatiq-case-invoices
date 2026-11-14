@@ -168,3 +168,22 @@ def test_fixtures_contain_no_secrets():
             assert needle not in text, f"{path} contains {needle!r}"
         if key:
             assert key.lower() not in text, f"{path} contains the API key"
+
+
+@needs_fixtures
+def test_recorded_run_meets_live_invariants(replayed):
+    """DESIGN §14.1 live-layer invariants, checked on the recorded Grok run (free, offline)."""
+    from models import Ceiling, Severity, Verdict
+
+    for res in replayed[0].results:
+        if res.decision is None or res.ceiling is None:
+            continue
+        if res.decision.by != "human":
+            assert res.decision.final <= res.ceiling, res.file
+        vp_turns = [t for t in res.transcript if t.actor == "vp" and t.kind == "decision"]
+        if vp_turns:
+            addressed = {fr["code"] for fr in vp_turns[-1].output.get("flags_addressed", [])}
+            escalations = {f.code.value for f in res.flags if f.severity == Severity.ESCALATION}
+            assert escalations <= addressed, (res.file, escalations - addressed)
+        if res.decision.final == Ceiling.APPROVE and res.amount_usd is not None and res.amount_usd > 10000:
+            assert res.decision.critic_verdict == Verdict.AGREE, res.file
