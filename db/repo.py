@@ -60,7 +60,7 @@ class Repo:
         self._conn.close()
 
     def _now(self) -> str:
-        return self._clock().isoformat()
+        return self._clock().isoformat(timespec="microseconds")
 
     @contextmanager
     def transaction(self) -> Iterator[None]:
@@ -361,7 +361,7 @@ class Repo:
                 (
                     p.idempotency_key, p.invoice_id, str(p.amount), p.currency,
                     str(p.fx_rate) if p.fx_rate is not None else None, str(p.amount_usd), p.attempts,
-                    receipt.model_dump_json(), now.isoformat(), now.isoformat(),
+                    receipt.model_dump_json(), now.isoformat(timespec="microseconds"), now.isoformat(timespec="microseconds"),
                 ),
             )
             for item, delta in p.stock_deltas.items():
@@ -372,15 +372,15 @@ class Repo:
                     raise ValueError(f"unknown inventory item: {item}")
                 self._conn.execute(
                     "INSERT INTO stock_ledger(item, delta, invoice_id, reason, ts) VALUES(?,?,?,'payment',?)",
-                    (item, delta, p.invoice_id, now.isoformat()),
+                    (item, delta, p.invoice_id, now.isoformat(timespec="microseconds")),
                 )
             self._conn.execute(
                 "INSERT INTO budget_ledger(month, amount_usd, invoice_id, ts) VALUES(?,?,?,?)",
-                (p.month, str(p.amount_usd), p.invoice_id, now.isoformat()),
+                (p.month, str(p.amount_usd), p.invoice_id, now.isoformat(timespec="microseconds")),
             )
             self._conn.execute(
                 "UPDATE invoices SET status=?, updated_at=? WHERE id=?",
-                (p.final_status, now.isoformat(), p.invoice_id),
+                (p.final_status, now.isoformat(timespec="microseconds"), p.invoice_id),
             )
             return receipt
 
@@ -462,10 +462,10 @@ class Repo:
 
     def list_queue(self, status: QueueStatus | None = "PENDING") -> list[QueueItem]:
         if status is None:
-            rows = self._conn.execute(f"{self._QUEUE_SELECT} ORDER BY q.created_at, q.invoice_id").fetchall()
+            rows = self._conn.execute(f"{self._QUEUE_SELECT} ORDER BY q.invoice_id").fetchall()
         else:
             rows = self._conn.execute(
-                f"{self._QUEUE_SELECT} WHERE q.status=? ORDER BY q.created_at, q.invoice_id", (status,)
+                f"{self._QUEUE_SELECT} WHERE q.status=? ORDER BY q.invoice_id", (status,)
             ).fetchall()
         return [self._queue_item(r) for r in rows]
 

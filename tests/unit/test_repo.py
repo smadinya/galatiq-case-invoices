@@ -256,7 +256,8 @@ def test_queue_ordering_oldest_first(repo):
     for iid in reversed(ids):
         repo.upsert_queue_item(QueueWrite(invoice_id=iid, trace_id=f"t{iid}", reason=FlagCode.OVER_BUDGET,
                                           review=review()))
-    assert sorted(i.invoice_id for i in repo.list_queue()) == ids
+    # oldest invoice first (insertion order), whatever order the rows were queued in or the wall clock says
+    assert [i.invoice_id for i in repo.list_queue()] == ids
 
 
 def test_find_pending_reference_forms(repo):
