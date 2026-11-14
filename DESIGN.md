@@ -103,7 +103,7 @@ REJECT  <  HUMAN  <  APPROVE
 | `foreign_currency` | human | Currency ≠ USD. The catalog price check is skipped. | 1014 |
 | `revision_of_paid_invoice` | human | A marked revision of an invoice already PAID | 1004 R1 |
 | `conflicting_invoice_number` | human | Same vendor and number, different content, no revision marker | — |
-| `over_budget` | human | Paying would exceed the remaining monthly budget | INV-2006 |
+| `over_budget` | human | Paying would exceed the remaining monthly budget. Only checked when no `error` flag fired: an invoice the hard rules reject is never paid. | INV-2006 |
 | `vendor_renamed` | human | Invoice names a known vendor as "formerly", "previously" or "f/k/a" | 1012 |
 | `payment_failed` | human | Payment still failing after retries (§9) | — |
 | `unreadable_document` | human | File can't be parsed, or LLM extraction fails the grounding check twice (§4.1) | — |
@@ -560,4 +560,5 @@ These weren't discussed explicitly. Change any of them freely.
 - **Corrupt files** are `unreadable_document` (human), not `ERROR` (§13). `ERROR` is reserved for unexpected exceptions.
 - **Statuses** `PROCESSING` (in flight) and `SUPERSEDED` (an unpaid original replaced by its revision) join the six in ARCHITECTURE §3.
 - **HUMAN only on a HUMAN ceiling** (§3.1); unreadable documents can only be rejected (§10); the stock-short memo on resume is written by code (§10).
+- **`over_budget`** is only checked when no `error` flag fired (1003 and 1013 would otherwise raise it although they can never be paid).
 - **Payment** makes 4 attempts in all (§9). Threshold flags use the stated total; `over_budget` and payment use the payable amount (§9).
