@@ -1,0 +1,227 @@
+{
+  "files": {
+    "invoice_1001.txt": {
+      "by": "vp",
+      "ceiling": "APPROVE",
+      "flags": [],
+      "paid": "5000.00",
+      "rounds": 0,
+      "status": "PAID"
+    },
+    "invoice_1002.txt": {
+      "by": "rules",
+      "ceiling": "REJECT",
+      "flags": [
+        "insufficient_stock",
+        "over_threshold",
+        "past_due",
+        "terms_mismatch",
+        "value_normalized"
+      ],
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
+    },
+    "invoice_1003.txt": {
+      "by": "rules",
+      "ceiling": "REJECT",
+      "flags": [
+        "invalid_due_date",
+        "over_threshold",
+        "unknown_vendor",
+        "zero_stock_item"
+      ],
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
+    },
+    "invoice_1004.json": {
+      "by": "vp",
+      "ceiling": "APPROVE",
+      "flags": [],
+      "paid": "1890.00",
+      "rounds": 0,
+      "status": "PAID"
+    },
+    "invoice_1004_revised.json": {
+      "by": "vp+critic",
+      "ceiling": "HUMAN",
+      "flags": [
+        "revision_of_paid_invoice"
+      ],
+      "human": {
+        "reason": "revision_of_paid_invoice",
+        "recommendation": "HUMAN"
+      },
+      "paid": null,
+      "rounds": 1,
+      "status": "PENDING_HUMAN"
+    },
+    "invoice_1005.json": {
+      "by": "vp+critic",
+      "ceiling": "APPROVE",
+      "flags": [
+        "over_threshold",
+        "unknown_vendor"
+      ],
+      "paid": null,
+      "rounds": 1,
+      "status": "REJECTED"
+    },
+    "invoice_1006.csv": {
+      "by": "vp",
+      "ceiling": "APPROVE",
+      "flags": [],
+      "paid": "2750.00",
+      "rounds": 0,
+      "status": "PAID"
+    },
+    "invoice_1007.csv": {
+      "by": "vp+critic",
+      "ceiling": "APPROVE",
+      "flags": [
+        "math_mismatch",
+        "over_threshold"
+      ],
+      "paid": null,
+      "rounds": 2,
+      "status": "REJECTED"
+    },
+    "invoice_1008.txt": {
+      "by": "rules",
+      "ceiling": "REJECT",
+      "flags": [
+        "near_threshold",
+        "past_due",
+        "unknown_item",
+        "unknown_item",
+        "unknown_vendor"
+      ],
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
+    },
+    "invoice_1009.json": {
+      "by": "rules",
+      "ceiling": "REJECT",
+      "flags": [
+        "invalid_due_date",
+        "math_mismatch",
+        "missing_vendor",
+        "non_positive_quantity"
+      ],
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
+    },
+    "invoice_1010.txt": {
+      "by": "vp+critic",
+      "ceiling": "APPROVE",
+      "flags": [
+        "price_above_catalog"
+      ],
+      "paid": null,
+      "rounds": 1,
+      "status": "REJECTED"
+    },
+    "invoice_1011.pdf": {
+      "by": "vp",
+      "ceiling": "APPROVE",
+      "flags": [],
+      "paid": "3000.00",
+      "rounds": 0,
+      "status": "PAID"
+    },
+    "invoice_1011.txt": {
+      "by": null,
+      "ceiling": null,
+      "flags": [],
+      "paid": null,
+      "rounds": 0,
+      "status": "DUPLICATE"
+    },
+    "invoice_1012.pdf": {
+      "by": "vp+critic",
+      "ceiling": "HUMAN",
+      "flags": [
+        "near_threshold",
+        "value_normalized",
+        "vendor_renamed"
+      ],
+      "human": {
+        "reason": "vendor_renamed",
+        "recommendation": "HUMAN"
+      },
+      "paid": null,
+      "rounds": 1,
+      "status": "PENDING_HUMAN"
+    },
+    "invoice_1012.txt": {
+      "by": null,
+      "ceiling": null,
+      "flags": [],
+      "paid": null,
+      "rounds": 0,
+      "status": "DUPLICATE"
+    },
+    "invoice_1013.json": {
+      "by": "vp+critic",
+      "ceiling": "APPROVE",
+      "flags": [
+        "math_mismatch",
+        "over_threshold",
+        "price_below_catalog"
+      ],
+      "paid": "22512.80",
+      "rounds": 1,
+      "status": "PAID"
+    },
+    "invoice_1013.pdf": {
+      "by": null,
+      "ceiling": null,
+      "flags": [],
+      "paid": null,
+      "rounds": 0,
+      "status": "DUPLICATE"
+    },
+    "invoice_1014.xml": {
+      "by": "vp+critic",
+      "ceiling": "HUMAN",
+      "flags": [
+        "foreign_currency"
+      ],
+      "human": {
+        "reason": "foreign_currency",
+        "recommendation": "HUMAN"
+      },
+      "paid": null,
+      "rounds": 1,
+      "status": "PENDING_HUMAN"
+    },
+    "invoice_1015.csv": {
+      "by": "vp",
+      "ceiling": "APPROVE",
+      "flags": [],
+      "paid": "6500.00",
+      "rounds": 0,
+      "status": "PAID"
+    },
+    "invoice_1016.json": {
+      "by": "rules",
+      "ceiling": "REJECT",
+      "flags": [
+        "unknown_item"
+      ],
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
+    }
+  },
+  "spent": "41652.80",
+  "stock": {
+    "FakeItem": 0,
+    "GadgetX": 2,
+    "WidgetA": 34,
+    "WidgetB": 14
+  }
+}
