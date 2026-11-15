@@ -185,12 +185,6 @@ def test_1005_vp_trace_has_vendor_history_unknown(run):
     assert traces and traces[0].result["known"] is False
 
 
-def test_1007_critic_trace_recomputes_totals(run):
-    res = by_file(run)["invoice_1007.csv"][2]
-    traces = [tc for t in res.transcript if t.actor == "critic" for tc in t.tool_calls if tc.name == "recompute_totals"]
-    assert traces and str(traces[0].result["difference"]) == "-110.00"
-
-
 def test_1010_has_round_two(run):
     res = by_file(run)["invoice_1010.txt"][2]
     assert len([t for t in res.transcript if t.actor == "critic"]) == 2

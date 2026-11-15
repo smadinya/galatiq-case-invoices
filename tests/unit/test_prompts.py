@@ -10,8 +10,9 @@ NAMES = ["extraction", "vp", "critic", "vp_memo"]
 @pytest.mark.parametrize("name", NAMES)
 def test_prompt_loads_with_version(name):
     p = load_prompt(name, PROMPTS)
-    assert p.version == f"{name}-v1" and p.name == name
-    assert (PROMPTS / f"{name}.md").read_text().startswith(f"<!-- prompt_version: {name}-v1 -->\n")
+    v = f"{name}-v2" if name == "vp" else f"{name}-v1"
+    assert p.version == v and p.name == name
+    assert (PROMPTS / f"{name}.md").read_text().startswith(f"<!-- prompt_version: {v} -->\n")
     assert "prompt_version" not in p.text
 
 

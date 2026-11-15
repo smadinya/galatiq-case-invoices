@@ -60,12 +60,6 @@ def test_over_threshold_needs_agree(make_state, make_invoice, settings):
 
 
 def test_payable_amounts(make_state, make_invoice, settings):
-    # 1007: stated total 110 below recomputed -> lower total
-    inv = make_invoice([("WidgetA", 50, "250.00"), ("WidgetB", 5, "500.00")], tax_rate="0.06", total="15525.00")
-    st = make_state(inv, ceiling=A, vp_output=vp(A, "x"), critic_output=critic(Verdict.AGREE, A),
-                    totals=recompute_totals(inv), amount_usd=D("15525.00"))
-    d, _ = decide(st, settings)
-    assert (d.payment_amount, d.payment_basis) == (D("15525.00"), "lower_total")
     # 1010: stated total 7185.00 is used
     inv = make_invoice([("WidgetA", 1, "250.00")], total="7185.00", subtotal="250.00", tax_amount="6935.00")
     st = make_state(inv, ceiling=A, vp_output=vp(A, "x"), totals=recompute_totals(inv), amount_usd=D("7185"))

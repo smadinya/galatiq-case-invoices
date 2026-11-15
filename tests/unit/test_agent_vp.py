@@ -49,7 +49,7 @@ def test_fast_path_approve(make_state, make_invoice, make_deps):
     assert out["llm_calls"] == {"vp": 1} and out["usage"].llm_calls == 1
     turn = out["transcript"][-1]
     assert (turn.actor, turn.kind, turn.round) == ("vp", "decision", 0)
-    assert fake.calls[0].ctx.stage == "vp" and fake.calls[0].ctx.prompt_version == "vp-v1"
+    assert fake.calls[0].ctx.stage == "vp" and fake.calls[0].ctx.prompt_version == "vp-v2"
 
 
 def test_tool_call_executed_and_four_tools(make_state, make_invoice, make_deps):
@@ -64,20 +64,20 @@ def test_tool_call_executed_and_four_tools(make_state, make_invoice, make_deps):
 
 
 def test_reask_when_escalation_flag_missing(make_state, make_invoice, make_deps):
-    flag = make_flag(FlagCode.MATH_MISMATCH, "off by 110")
+    flag = make_flag(FlagCode.PRICE_ABOVE_CATALOG, "20% over catalog")
     st = mk(make_state, make_invoice, flags=[flag])
-    fake = ScriptedFake({(FILE, "vp"): [vp(A, "ok"), vp(A, "ok", flags=[(FlagCode.MATH_MISMATCH, "lower total")])]})
+    fake = ScriptedFake({(FILE, "vp"): [vp(A, "ok"), vp(A, "ok", flags=[(FlagCode.PRICE_ABOVE_CATALOG, "labelled rush")])]})
     deps = make_deps(fake)
     out = vp_decide(st, deps)
     assert out["llm_calls"]["vp"] == 2 and out["usage"].llm_calls == 2
     assert [c.ctx.call_index for c in fake.calls] == [0, 1]
-    assert "math_mismatch" in fake.calls[1].messages[-1].content
-    assert out["vp_output"].flags_addressed[0].code == FlagCode.MATH_MISMATCH
+    assert "price_above_catalog" in fake.calls[1].messages[-1].content
+    assert out["vp_output"].flags_addressed[0].code == FlagCode.PRICE_ABOVE_CATALOG
     assert not deps.log.of("error")
 
 
 def test_still_incomplete_logs_error_and_continues(make_state, make_invoice, make_deps):
-    st = mk(make_state, make_invoice, flags=[make_flag(FlagCode.MATH_MISMATCH, "x")])
+    st = mk(make_state, make_invoice, flags=[make_flag(FlagCode.PRICE_ABOVE_CATALOG, "x")])
     fake = ScriptedFake({(FILE, "vp"): [vp(A, "a"), vp(A, "b")]})
     deps = make_deps(fake)
     out = vp_decide(st, deps)

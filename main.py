@@ -116,6 +116,41 @@ def _ref(result: InvoiceResult) -> str:
     return result.file
 
 
+def _codes(flags: list[Any]) -> str:
+    return ", ".join(dict.fromkeys(f.code.value for f in flags))  # e.g. two unknown_item flags name it once
+
+
+def _snippet(text: str | None, limit: int = 40) -> str:
+    text = " ".join((text or "").split())
+    return text if len(text) <= limit else text[: limit - 1].rstrip() + "\u2026"
+
+
+def rejection_reason(r: InvoiceResult) -> str | None:
+    """Why a REJECTED invoice was rejected, in a few words; None for any other status."""
+    if r.status != Status.REJECTED:
+        return None
+    d = r.decision
+    if d is None and r.human is None:
+        return _codes([f for f in r.flags if f.severity == Severity.ERROR]) or "rejected"
+    by = d.by if d else "human"
+    esc = [f for f in r.flags if f.severity == Severity.ESCALATION]
+    if by == "rules":
+        return _codes([f for f in r.flags if f.severity == Severity.ERROR]) or _snippet(d.reasoning if d else None)
+    if by in ("vp", "vp+critic"):
+        who = "VP" if by == "vp" else "VP+Critic"
+        why = _codes(esc) or _snippet(d.reasoning if d else None)
+        if d and d.clamped:
+            why = "capped to reject" + (f" ({why})" if why else "")
+        return f"{who}: {why}"
+    if by == "deadlock":
+        return "deadlock: " + (_codes(esc) or _snippet(d.reasoning if d else None))
+    h = r.human
+    if h and h.outcome == "rejected_stock":
+        return "person: stock short"
+    note = (h.outcome_note or (h.resolution.note if h.resolution else None)) if h else None
+    return "person: " + (_snippet(note) or "no note")
+
+
 class _UsageError(Exception):
     pass
 
@@ -396,24 +431,45 @@ class Renderer:
 
     def batch(self, b: BatchResult) -> None:
         t = Table(title="Batch summary", title_justify="left", header_style="bold",
-                  box=box.SIMPLE_HEAD, show_edge=False, padding=(0, 1, 0, 0))
-        t.add_column("File", no_wrap=True, min_width=len(max((r.file for r in b.results), key=len, default="File")))
-        t.add_column("Invoice", no_wrap=True)
-        t.add_column("Status", no_wrap=True, min_width=13)
-        t.add_column("Ceiling", no_wrap=True, min_width=7)
-        t.add_column("Flags", justify="right", no_wrap=True, min_width=5)
-        t.add_column("Paid", justify="right", no_wrap=True)
+                  box=box.SIMPLE_HEAD, show_edge=False, padding=(0, 0))
+        rows = []
         for r in b.results:
-            err = r.status == Status.ERROR
             paid = money(r.payment.amount, r.payment.currency) if r.payment else "-"
-            row_style = "red" if err else None
-            t.add_row(
+            rows.append((r, paid, rejection_reason(r) or "-"))
+        # Columns in display order: (header, width of the widest cell or header, extra column options).
+        cols: list[tuple[str, int, dict[str, Any]]] = [
+            ("File", max([4] + [len(r.file) for r in b.results]), {}),
+            ("Invoice", max([7] + [len(_ref(r)) if r.invoice_number else 1 for r in b.results]), {}),
+            ("Status", 13, {}),
+            ("Ceiling", 7, {}),
+            ("Flags", 5, {"justify": "right"}),
+            ("Paid", max([4] + [len(p) for _, p, _ in rows]), {"justify": "right"}),
+        ]
+        # The Reason column wraps but needs room. On a narrow terminal drop the redundant Ceiling column, then
+        # Flags (the reason names the flags that matter), instead of squeezing Reason or truncating the others.
+        drop: set[str] = set()
+        for name in ("", "Ceiling", "Flags"):
+            if name:
+                drop.add(name)
+            used = sum(w + 1 for h, w, _ in cols if h not in drop)  # 1 = box separator
+            if self.c.width - used >= 14:
+                break
+        for h, w, opts in cols:
+            if h not in drop:
+                t.add_column(h, no_wrap=True, min_width=w, **opts)
+        t.add_column("Reason", overflow="fold", min_width=14)
+        for r, paid, reason in rows:
+            err = r.status == Status.ERROR
+            cells: list[Any] = [
                 r.file, _ref(r) if r.invoice_number else "-", _status_text(r.status),
                 r.ceiling.value if r.ceiling else "-", str(len(r.flags)) if r.flags else "-", paid,
-                style=row_style,
-            )
+            ]
+            hdrs = [h for h, _, _ in cols]
+            cells = [c for h, c in zip(hdrs, cells) if h not in drop]
+            t.add_row(*cells, reason, style="red" if err else None)
             if err and r.error:
-                t.add_row("", Text(r.error, style="red"), "", "", "", "", style="red")
+                blanks = [""] * (len(cells) - 2)
+                t.add_row("", Text(r.error, style="red"), *blanks, "", style="red")
         self.c.print(t)
         counts = b.counts
         paid_total = sum((r.payment.amount_usd for r in b.results if r.payment), Decimal("0"))

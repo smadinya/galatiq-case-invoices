@@ -66,7 +66,7 @@ FLAG_SEVERITY: dict[FlagCode, Severity] = {
     FlagCode.NO_LINE_ITEMS: Severity.ERROR,
     FlagCode.HIGH_RISK_SCORE: Severity.ERROR,
     FlagCode.PROMPT_INJECTION: Severity.ERROR,
-    FlagCode.MATH_MISMATCH: Severity.ESCALATION,
+    FlagCode.MATH_MISMATCH: Severity.ERROR,
     FlagCode.UNKNOWN_VENDOR: Severity.ESCALATION,
     FlagCode.PRICE_ABOVE_CATALOG: Severity.ESCALATION,
     FlagCode.FOREIGN_CURRENCY: Severity.HUMAN,
@@ -189,7 +189,7 @@ AliasKind = Literal["previous_name", "approved_rename"]
 Actor = Literal["system", "vp", "critic", "human"]
 Stage = Literal["extraction", "vp", "vp_memo", "critic"]
 QueueStatus = Literal["PENDING", "RESOLVED", "SUPERSEDED"]
-PaymentBasis = Literal["stated_total", "lower_total", "revision_difference"]
+PaymentBasis = Literal["stated_total", "revision_difference"]
 
 # ======================================================= provider-layer types
 

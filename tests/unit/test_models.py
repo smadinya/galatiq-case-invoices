@@ -33,7 +33,8 @@ def test_ceiling_order():
 
 def test_flag_severity_filled_when_omitted():
     f = Flag(code=FlagCode.MATH_MISMATCH, message="x")
-    assert f.severity is Severity.ESCALATION
+    assert f.severity is Severity.ERROR
+    assert Flag(code=FlagCode.PRICE_ABOVE_CATALOG, message="x").severity is Severity.ESCALATION
     f2 = Flag.model_validate({"code": "over_budget", "message": "x"})
     assert f2.severity is Severity.HUMAN
     assert make_flag(FlagCode.PAST_DUE, "late", days=3).evidence == {"days": 3}
@@ -41,18 +42,19 @@ def test_flag_severity_filled_when_omitted():
 
 def test_flag_severity_mismatch_raises():
     with pytest.raises(ValidationError):
-        Flag(code=FlagCode.MATH_MISMATCH, severity=Severity.ERROR, message="x")
+        Flag(code=FlagCode.PRICE_ABOVE_CATALOG, severity=Severity.ERROR, message="x")
 
 
 def test_ceiling_for():
     err = make_flag(FlagCode.UNKNOWN_ITEM, "e")
     hum = make_flag(FlagCode.OVER_BUDGET, "h")
-    esc = make_flag(FlagCode.MATH_MISMATCH, "s")
+    esc = make_flag(FlagCode.PRICE_ABOVE_CATALOG, "s")
     info = make_flag(FlagCode.PAST_DUE, "i")
     assert ceiling_for([]) is Ceiling.APPROVE
     assert ceiling_for([esc, info]) is Ceiling.APPROVE
     assert ceiling_for([hum, esc]) is Ceiling.HUMAN
     assert ceiling_for([hum, err]) is Ceiling.REJECT
+    assert ceiling_for([make_flag(FlagCode.MATH_MISMATCH, "m")]) is Ceiling.REJECT
 
 
 def _reachable(tp, seen: set[type]) -> None:

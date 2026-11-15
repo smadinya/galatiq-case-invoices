@@ -77,14 +77,14 @@
       "status": "PAID"
     },
     "invoice_1007.csv": {
-      "by": "vp+critic",
-      "ceiling": "APPROVE",
+      "by": "rules",
+      "ceiling": "REJECT",
       "flags": [
         "math_mismatch",
         "over_threshold"
       ],
       "paid": null,
-      "rounds": 2,
+      "rounds": 0,
       "status": "REJECTED"
     },
     "invoice_1008.txt": {
@@ -153,7 +153,7 @@
         "recommendation": "HUMAN"
       },
       "paid": null,
-      "rounds": 1,
+      "rounds": 2,
       "status": "PENDING_HUMAN"
     },
     "invoice_1012.txt": {
@@ -165,16 +165,16 @@
       "status": "DUPLICATE"
     },
     "invoice_1013.json": {
-      "by": "vp+critic",
-      "ceiling": "APPROVE",
+      "by": "rules",
+      "ceiling": "REJECT",
       "flags": [
         "math_mismatch",
         "over_threshold",
         "price_below_catalog"
       ],
-      "paid": "22512.80",
-      "rounds": 1,
-      "status": "PAID"
+      "paid": null,
+      "rounds": 0,
+      "status": "REJECTED"
     },
     "invoice_1013.pdf": {
       "by": null,
@@ -217,11 +217,11 @@
       "status": "REJECTED"
     }
   },
-  "spent": "41652.80",
+  "spent": "19140.00",
   "stock": {
     "FakeItem": 0,
-    "GadgetX": 2,
-    "WidgetA": 34,
-    "WidgetB": 14
+    "GadgetX": 11,
+    "WidgetA": 56,
+    "WidgetB": 32
   }
 }

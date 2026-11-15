@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:35:34Z",
+  "recorded_at": "2026-11-15T00:30:48Z",
   "request": {
     "digest": "dd6887b093caeedbfd8fa9cb9e83b344714de17168b37a9eac06eaca4c693670",
     "messages": [
@@ -24,12 +24,12 @@
     "tools": []
   },
   "response": {
-    "content": "{\"memo\":\"Payment on invoice INV-1008 (9900.00 USD) is blocked and the outcome is REJECT. Error flag unknown_item applies to SuperGizmo, quantity 12 at unit price 400.00, which is not in inventory. Error flag unknown_item applies to MegaSprocket, quantity 6 at unit price 850.00, which is not in inventory. Escalation flag unknown_vendor applies because vendor NoProd Industries is not in the vendor master. The address check is no_record, so there is an address mismatch; that result does not change the outcome, and resubmission would require both items to be known inventory items and the vendor to be on the vendor master.\"}",
+    "content": "{\"memo\":\"Payment on invoice INV-1008 (9900.00 USD) is blocked under a REJECT ceiling. Error flag unknown_item applies to SuperGizmo, quantity 12 at unit price 400.00, which is not in inventory, and error flag unknown_item applies to MegaSprocket, quantity 6 at unit price 850.00, which is not in inventory. Escalation flag unknown_vendor applies because NoProd Industries is not in the vendor master. The address check result is no_record (no vendor address on the invoice), which is not a verified-address rejection and does not change this outcome. Resubmission would require both items to be in inventory and the vendor to be on the vendor master.\"}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 19459,
+      "latency_ms": 14609,
       "tokens_in": 2119,
-      "tokens_out": 149
+      "tokens_out": 154
     }
   }
 }

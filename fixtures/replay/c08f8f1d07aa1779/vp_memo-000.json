@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:28:29Z",
+  "recorded_at": "2026-11-15T00:28:16Z",
   "request": {
     "digest": "deac2ce7c7e1eba4a125b042e36d4c543ec4798d9dbf804cae94510aa7404bac",
     "messages": [
@@ -24,12 +24,12 @@
     "tools": []
   },
   "response": {
-    "content": "{\"memo\":\"Invoice INV-1002 from Gadgets Co. is rejected and payment is blocked under error flag insufficient_stock: GadgetX quantity 20 was requested but only 13 are in stock, on a payable amount of 15000.00 USD. The address check returned no_record, which is not a verified address; that result is not grounds for rejection and does not change this outcome. Resubmission would require stock of GadgetX to cover the invoiced quantity, or the quantity reduced to the 13 units on hand, with the invoice submitted again under the same rules.\"}",
+    "content": "{\"memo\":\"Payment on invoice INV-1002 from Gadgets Co. is blocked. The error-severity flag insufficient_stock applies because line 1 requests 20 units of GadgetX while only 13 are in stock. The address check returned no_record, so the vendor address could not be matched to a record on file; that finding does not change the rejection. The invoice can be resubmitted only if the GadgetX quantity is reduced to available stock or stock is replenished so the requested quantity can be filled.\"}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 13916,
+      "latency_ms": 8796,
       "tokens_in": 2089,
-      "tokens_out": 123
+      "tokens_out": 110
     }
   }
 }

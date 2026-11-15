@@ -71,10 +71,10 @@ def run_steps(make_service, steps):
 def test_post_batch_steps(make_service):
     final, _ = run_steps(make_service, POST_BATCH_STEPS)
     assert final.list_queue() == []
-    assert final.banner().budget.spent == D("56280.00")
+    assert final.banner().budget.spent == D("37620.00")
     inv = {i.file_name: i.status for i in final.repo.list_invoices()}
     assert inv["invoice_1012.pdf"] == Status.PAID and inv["invoice_1014.xml"] == Status.PAID
-    assert inv["invoice_1004_revised.json"] == Status.REJECTED
+    assert inv["invoice_1004_revised.json"] == Status.PAID
 
 
 def test_alternative_order(make_service):
@@ -82,5 +82,5 @@ def test_alternative_order(make_service):
     queue = final.list_queue()
     assert [q.invoice_ref for q in queue] == ["INV-1014"]
     inv = {i.file_name: i.status for i in final.repo.list_invoices()}
-    assert inv["invoice_1004_revised.json"] == Status.PAID and inv["invoice_1012.pdf"] == Status.REJECTED
-    assert final.banner().budget.spent == D("45900.00")
+    assert inv["invoice_1004_revised.json"] == Status.PAID and inv["invoice_1012.pdf"] == Status.PAID
+    assert final.banner().budget.spent == D("33165.00")

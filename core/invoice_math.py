@@ -92,13 +92,10 @@ def aggregate_quantities(lines: list[LineItem]) -> dict[str, int]:
 def payable_amount(
     invoice: Invoice, totals: Totals, *, revision_paid_to_date: Decimal | None
 ) -> tuple[Decimal, PaymentBasis]:
-    if totals.total_ok:
-        base, basis = totals.total_stated, "stated_total"
-    else:
-        base, basis = min(totals.total_stated, totals.total_recomputed), "lower_total"
+    base = totals.total_stated
     if revision_paid_to_date is not None:
         return to_cents(base - revision_paid_to_date), "revision_difference"
-    return to_cents(base), basis
+    return to_cents(base), "stated_total"
 
 
 def to_usd(amount: Decimal, currency: str, fx_rate: Decimal | None) -> Decimal | None:

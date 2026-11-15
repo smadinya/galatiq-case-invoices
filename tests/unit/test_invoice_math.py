@@ -129,18 +129,11 @@ def test_aggregate_quantities(make_invoice):
     assert aggregate_quantities(inv.line_items) == {"widgeta": 20, "gadgetx": 1}
 
 
-def test_payable_amount_stated_lower_and_revision(make_invoice):
-    inv = make_invoice(
-        [("WidgetA", 20, "250.00"), ("WidgetB", 15, "500.00"), ("GadgetX", 3, "750.00")],
-        subtotal="14750.00", tax_rate="0.06", tax_amount="885.00", total="15525.00",
-    )
-    t = recompute_totals(inv)
-    assert payable_amount(inv, t, revision_paid_to_date=None) == (D("15525.00"), "lower_total")
-
+def test_payable_amount_stated_and_revision(make_invoice):
     ok = make_invoice([("WidgetA", 4, "250.00")], total="1000.00")
     assert payable_amount(ok, recompute_totals(ok), revision_paid_to_date=None) == (D("1000.00"), "stated_total")
 
-    # stated total below recomputed (underbilled): still the lower one
+    # stated total below recomputed (underbilled): the stated total is still the base
     low = make_invoice([("WidgetA", 4, "250.00")], total="900.00")
     assert payable_amount(low, recompute_totals(low), revision_paid_to_date=None)[0] == D("900.00")
 
