@@ -244,3 +244,20 @@ def test_uploading_files_selects_the_stored_folder_and_runs_it(ui_rt):
     at.run()
     assert len(table(at)) == 1
     assert statuses(at) == ["Paid"]
+
+
+def test_table_height_fits_every_row_up_to_the_cap():
+    from ui.kit import batch_view as bv
+
+    assert bv.table_height(0) == bv.table_height(1)
+    assert bv.table_height(20) == 38 + 33 * 20
+    assert bv.table_height(25) == 38 + 33 * 25
+    assert bv.table_height(400) == bv.table_height(25)
+
+
+def test_the_file_column_is_not_pinned():
+    # A pinned column is drawn greyed out as if it were an index; File stays first and in normal ink.
+    from ui.kit import batch_view as bv
+
+    cfg = bv.table_config([], "light")
+    assert not any(getattr(c, "get", lambda k, d=None: d)("pinned") for c in cfg.values())

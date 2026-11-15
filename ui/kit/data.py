@@ -122,6 +122,10 @@ class ReadSession:
     def budget_ledger(self) -> list[BudgetLedgerEntry]:
         return self._read(lambda r: r.budget_ledger(self.budget_month), [])
 
+    def budget_ledger_all(self) -> list[BudgetLedgerEntry]:
+        """Budget entries for every month (the Ledger page lists the other months)."""
+        return self._read(lambda r: r.budget_ledger(), [])
+
     def budget_status(self) -> BudgetStatus:
         empty = BudgetStatus(
             month=self.budget_month, limit=self.settings.monthly_budget_usd, spent=Decimal("0"),

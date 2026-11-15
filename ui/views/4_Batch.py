@@ -3,10 +3,9 @@
 import streamlit as st
 
 from core.metrics import latest_per_file, savings_estimate
-from llm.select import NoProviderAvailable
 from models import InvoiceResult, Status
 from ui.kit import batch_view as bv
-from ui.kit import components, copy, fmt, live, theme
+from ui.kit import components, copy, fmt, live, process_view, theme
 from ui.kit.data import file_sha256
 from ui.kit.jobs import Busy, JobSnapshot
 from ui.kit.runtime import get_runtime
@@ -123,7 +122,7 @@ def _measures(results: list[InvoiceResult], *, history: bool) -> None:
     st.markdown(fmt.md(lines.formula))
     st.markdown(fmt.md(lines.substituted))
     st.markdown(f"**{fmt.md(lines.result)}**")
-    st.dataframe(bv.savings_table(estimate, shown), hide_index=True, height=35 * 5)
+    st.dataframe(bv.savings_table(estimate, shown), hide_index=True, height="content")
 
 
 def _finished(results: list[InvoiceResult], *, history: bool = False) -> None:
@@ -232,7 +231,7 @@ else:
     snap = job.snapshot()
     results = list(snap.results)
     failed_file = None
-    if snap.state == "failed" and isinstance(snap.error, NoProviderAvailable):
+    if snap.state == "failed" and process_view.is_no_model(snap.error):
         failed_file = snap.current_file
         with rt.reader(cfg) as reader:
             latest = [
@@ -244,7 +243,7 @@ else:
     if snap.state == "stopped":
         st.caption(bv.stopped_text(len(snap.results), snap.total_files or len(snap.results)))
     elif snap.state == "failed":
-        if isinstance(snap.error, NoProviderAvailable):
+        if process_view.is_no_model(snap.error):
             st.warning(fmt.md(copy.t("warn.stopped", file=failed_file or "the next file")))
             ways = bv.ways_to_get_a_model(str(snap.error))
             if ways:

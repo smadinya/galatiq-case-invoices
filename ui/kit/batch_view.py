@@ -238,7 +238,7 @@ def table_config(rows: Sequence[ResultRow], mode: theme.Mode) -> dict[str, Any]:
     flag_colors = [theme.TINT[mode][flag_tokens[o]] for o in flag_options]
     cfg = st.column_config
     return {
-        _COLUMNS["file"]: cfg.TextColumn(_COLUMNS["file"], pinned=True, width=176),
+        _COLUMNS["file"]: cfg.TextColumn(_COLUMNS["file"], width=176),
         _COLUMNS["ref"]: cfg.TextColumn(_COLUMNS["ref"], width=104),
         _COLUMNS["vendor"]: cfg.TextColumn(_COLUMNS["vendor"], width=176),
         _COLUMNS["amount"]: cfg.TextColumn(_COLUMNS["amount"], alignment="right", width=112),
@@ -251,8 +251,13 @@ def table_config(rows: Sequence[ResultRow], mode: theme.Mode) -> dict[str, Any]:
     }
 
 
+TABLE_MAX_ROWS = 25
+
+
 def table_height(n: int) -> int:
-    return min(38 + 35 * max(n, 1), 38 + 35 * 14)
+    """Header plus every row (33 px each at the theme's 15 px base font) with no inner scrollbar and no empty
+    rows underneath, up to `TABLE_MAX_ROWS` rows."""
+    return 38 + 33 * min(max(n, 1), TABLE_MAX_ROWS)
 
 
 # --------------------------------------------------------------------- metrics

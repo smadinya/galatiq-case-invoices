@@ -1,7 +1,7 @@
 // Screenshots of the running dashboard (a dev tool; see scripts/ui_screenshots.py, which starts the server).
 //
 //   node scripts/ui_screenshots.mjs --base http://127.0.0.1:8599 --out DIR [--modes light,dark]
-//        [--widths 1440,390] --shot name=/path [--shot ...]
+//        [--widths 1440,390] [--height 900] --shot name=/path [--shot ...]
 //
 // Environment: PW_NODE_MODULES (a node_modules folder that has playwright) and PW_CHROME (a chromium
 // headless shell). Without them the newest ~/.npm/_npx/*/node_modules with playwright and the newest
@@ -38,14 +38,14 @@ function findChrome() {
 }
 
 function parseArgs(argv) {
-  const args = { modes: "light,dark", widths: "1440,390", shots: [] };
+  const args = { modes: "light,dark", widths: "1440,390", height: "900", shots: [] };
   for (let i = 0; i < argv.length; i++) {
     const key = argv[i];
     if (key === "--shot") args.shots.push(argv[++i]);
     else if (key.startsWith("--")) args[key.slice(2)] = argv[++i];
   }
   if (!args.base || !args.out || !args.shots.length) {
-    throw new Error("usage: --base URL --out DIR --shot name=/path [--shot ...] [--modes light,dark] [--widths 1440,390]");
+    throw new Error("usage: --base URL --out DIR --shot name=/path [--shot ...] [--modes light,dark] [--widths 1440,390] [--height 900]");
   }
   return args;
 }
@@ -59,10 +59,10 @@ const browser = await chromium.launch({ executablePath: findChrome(), headless: 
 let failed = false;
 try {
   for (const mode of args.modes.split(",")) {
-    const context = await browser.newContext({ colorScheme: mode, viewport: { width: 1440, height: 900 } });
+    const context = await browser.newContext({ colorScheme: mode, viewport: { width: 1440, height: Number(args.height) } });
     const page = await context.newPage();
     for (const width of args.widths.split(",").map(Number)) {
-      await page.setViewportSize({ width, height: 900 });
+      await page.setViewportSize({ width, height: Number(args.height) });
       for (const shot of args.shots) {
         const at = shot.indexOf("=");
         const name = shot.slice(0, at), urlPath = shot.slice(at + 1);

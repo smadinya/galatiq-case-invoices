@@ -127,8 +127,7 @@ def _detail(rt: Runtime, cfg: UiConfig, record: InvoiceRecord, job: Job | None) 
         if record.status == Status.PAID:
             month = calendar.month_name[cfg.as_of.month]
             rows = pv.payment_rows(record, reader.stock_ledger(), reader.budget_ledger(), month) or None
-    components.render_case(result, detail, key="process.case", payment_rows=rows)
-    if result.status == Status.ERROR:
+    def again_button() -> None:
         again = pv.RunTarget(Path(record.file_path), record.file_name, record.file_hash, None)
         pre = rt.preflight(cfg, [record.file_hash])
         blocker = pv.run_blocker(again, pre, rt.jobs.current())
@@ -136,6 +135,11 @@ def _detail(rt: Runtime, cfg: UiConfig, record: InvoiceRecord, job: Job | None) 
             _start(rt, cfg, again.path)
         if blocker:
             st.caption(fmt.md(blocker))
+
+    components.render_case(
+        result, detail, key="process.case", payment_rows=rows,
+        after_error=again_button if result.status == Status.ERROR else None,
+    )
 
 
 def main() -> None:

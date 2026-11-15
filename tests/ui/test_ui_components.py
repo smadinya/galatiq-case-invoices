@@ -54,7 +54,39 @@ def test_render_case_error():
     text = " ".join(m.value for m in at.markdown)
     assert "This is a bug, not a business decision" in text.replace("\\", "")
     assert [h.value for h in at.header] == [r"System error\: nothing was paid"]
-    assert not at.button  # no Process again here
+    assert not at.button  # nothing unless the page passes after_error
+
+
+def _error_after_app(result):
+    import streamlit as st
+    from models import InvoiceResult
+    from ui.kit.components import render_case
+
+    def again():
+        st.button("Process again", key="process.again")
+        st.caption("after-error marker")
+
+    render_case(InvoiceResult.model_validate(result), None, key="c", links=False, after_error=again)
+
+
+def test_render_case_error_calls_after_error_under_the_container():
+    res = InvoiceResult(trace_id="inv-x-1", file="invoice_1007.csv", status=Status.ERROR,
+                        error="TypeError: boom", provider="replay")
+    at = run(_error_after_app, js(res))
+    assert [b.key for b in at.button] == ["process.again"]
+    assert "after-error marker" in [c.value for c in at.caption]
+
+
+def test_after_error_is_ignored_for_a_normal_case(cases):
+    res, st = cases["invoice_1010.txt"]
+    def app(result, state):
+        import streamlit as st_
+        from models import InvoiceResult
+        from ui.kit.components import render_case
+        render_case(InvoiceResult.model_validate(result), None, key="c", links=False,
+                    after_error=lambda: st_.button("nope", key="nope"))
+    at = run(app, js(res), js(st))
+    assert all(b.key != "nope" for b in at.button)
 
 
 def _flags_app():
@@ -117,3 +149,12 @@ def test_bar_and_meters():
     assert 'aria-label="5 paid, 9 rejected, 3 need a person, 3 duplicates"' in bodies[0]
     assert "56 of 90" in bodies[1] and "none in stock" in bodies[1] and 'width:62%' in bodies[1]
     assert "&lt;b&gt;" in bodies[2] and "&#36;1" in bodies[2]
+
+
+def test_stylesheet_out_ranks_streamlits_list_padding_without_its_generated_classes():
+    from ui.kit import components, theme
+
+    assert "st-emotion" not in theme._STYLE and "st-emotion" not in components._BAR_STYLE
+    for cls in (".k-kv.k-kv", ".k-meters.k-meters", ".k-legend.k-legend", ".k-src.k-src"):
+        assert cls in theme._STYLE + components._BAR_STYLE
+    assert len(theme._STYLE.strip().splitlines()) <= 40

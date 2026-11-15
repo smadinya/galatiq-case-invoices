@@ -320,3 +320,14 @@ def test_post_batch_walk_through_ends_all_resolved(ui_rt_batch):
     assert "See the payments in the ledger" in [p.proto.label for p in at.get("page_link")]
     assert not pending(ui_rt_batch)
     assert any("Resolved (3)" in e.label for e in at.expander)
+
+
+def test_a_fresh_visit_to_a_finished_queue_still_lists_the_resolved_items(ui_rt_batch):
+    with Service(ui_rt_batch.settings, provider=None, env={}) as svc:
+        for ref in ("INV-1004 R1", "INV-1012"):
+            svc.resolve(ref, action="reject", note="not needed")
+        svc.resolve("INV-1014", action="reject", note="not needed")
+    at = go(ui_rt_batch)
+    assert "All decisions made. You approved 0 and rejected 3" in texts(at)
+    [exp] = [e for e in at.expander if e.label.startswith("Resolved")]
+    assert exp.label == "Resolved (3)"

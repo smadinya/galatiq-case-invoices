@@ -1,12 +1,15 @@
 """Screenshot the real dashboard in light and dark mode at several widths (a dev tool, not run by pytest).
 
     uv run python scripts/ui_screenshots.py --out DIR --port 8599 [--state fresh|batch|walkthrough]
-        [--modes light,dark] [--widths 1440,390] [--shots name=URLPATH ...]
+        [--modes light,dark] [--widths 1440,390] [--height 900] [--shots name=URLPATH ...]
 
 The state is seeded with the replay provider on a temporary database, so nothing touches `acme.db`,
 nothing calls a model and the result is deterministic. A shot's URL path may use `{trace_1010}`,
 `{trace_1012}` and `{invoice_id_1014}`, which are filled in from the seeded state (`--state batch`
 or `walkthrough`), for example `--shots 'process-1012=/?trace={trace_1012}'`.
+
+Streamlit scrolls inside its own container, so the viewport height is the capture height: pass
+`--height 2600` to get a long page in one image.
 
 Needs Node with Playwright (the newest `~/.npm/_npx/*/node_modules` that has it, or PW_NODE_MODULES)
 and a Chromium headless shell (the newest in `~/.cache/ms-playwright`, or PW_CHROME).
@@ -109,6 +112,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--state", choices=("fresh", "batch", "walkthrough"), default="batch")
     parser.add_argument("--modes", default="light,dark")
     parser.add_argument("--widths", default="1440,390")
+    parser.add_argument("--height", type=int, default=900, help="viewport height in px (long pages need more)")
     parser.add_argument("--shots", nargs="*", default=list(DEFAULT_SHOTS), metavar="NAME=URLPATH")
     args = parser.parse_args(argv)
 
@@ -133,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
             wait_healthy(args.port, proc)
             node = subprocess.run(
                 ["node", str(REPO_ROOT / "scripts/ui_screenshots.mjs"), "--base", f"http://127.0.0.1:{args.port}",
-                 "--out", str(args.out), "--modes", args.modes, "--widths", args.widths,
+                 "--out", str(args.out), "--modes", args.modes, "--widths", args.widths, "--height", str(args.height),
                  *[x for shot in shots for x in ("--shot", shot)]],
                 cwd=REPO_ROOT, env=os.environ,
             )

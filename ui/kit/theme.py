@@ -104,20 +104,25 @@ def theme_type() -> Mode:
 
 _STYLE = """
 <style>
-.k-kv { display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; margin: 0.25rem 0 0.75rem; }
+/* Streamlit pads every list inside st.html (30px); doubling the class out-ranks it without touching its classes. */
+.k-kv.k-kv { padding: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.35rem 1.25rem; margin: 0.25rem 0 0.75rem; }
 .k-kv dt { font-weight: 600; margin: 0; }
 .k-kv dd { margin: 0; overflow-wrap: anywhere; }
-.k-meters { list-style: none; margin: 0.25rem 0 0.5rem; padding: 0; display: grid; gap: 0.4rem; }
+.k-meters.k-meters { list-style: none; margin: 0.25rem 0 0.5rem; padding: 0; display: grid; gap: 0.4rem; }
 .k-meters li { display: grid; grid-template-columns: minmax(4.5rem, max-content) 1fr max-content; gap: 0.6rem; align-items: center; }
 .k-meter { display: block; height: 0.5rem; border-radius: 2px; background: color-mix(in srgb, currentColor 14%, transparent); }
 .k-meter > span { display: block; height: 100%; border-radius: 2px; background: currentColor; }
 .k-meters .k-none { grid-column: 2 / 4; opacity: 0.75; }
-.k-src { margin: 0; padding: 0; list-style: none; overflow-x: auto; border: 1px solid var(--k-rule, #CBD4C9);
+.k-src.k-src { margin: 0; padding: 0; list-style: none; overflow-x: auto; border: 1px solid var(--k-rule, #CBD4C9);
   border-radius: 0.25rem; font-family: "IBM Plex Mono", monospace, monospace; font-size: 0.8125rem; line-height: 1.5; max-height: 32rem; }
 .k-src li { display: flex; white-space: pre; min-width: max-content; border-left: 3px solid transparent; }
 .k-src .k-n { flex: none; width: 3.25rem; padding-right: 0.75rem; text-align: right; opacity: 0.55; user-select: none; }
+/* The selected segment would read in the primary colour, which is low contrast on dark paper; use body ink. */
+button[data-variant="segmented_control"][aria-checked="true"],
+button[data-variant="segmented_control"][aria-checked="true"] * { color: inherit !important; }
+button[data-variant="segmented_control"][aria-checked="true"] { background: color-mix(in srgb, currentColor 16%, transparent) !important; font-weight: 600; }
 @media (max-width: 640px) {
-  .k-kv { grid-template-columns: 1fr; gap: 0; }
+  .k-kv.k-kv { grid-template-columns: 1fr; gap: 0; }
   .k-kv dd { margin-bottom: 0.5rem; }
 }
 </style>

@@ -16,7 +16,7 @@ with rt.reader(cfg) as reader:
     start = reader.starting_stock()
     stock_entries = reader.stock_ledger()
     budget_entries = reader.budget_ledger()
-    all_budget = reader._read(lambda r: r.budget_ledger(), [])  # other months; no public read for them yet
+    all_budget = reader.budget_ledger_all()
     budget = reader.budget_status()
     payments = reader.payments()
     invoices = reader.invoices()

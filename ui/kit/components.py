@@ -9,7 +9,7 @@ through `fmt.md` (Markdown surfaces) or `fmt.esc` (HTML). `unsafe_allow_html` is
 """
 
 from decimal import Decimal
-from typing import Any, Sequence
+from typing import Any, Callable, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -131,7 +131,7 @@ def meter_list(rows: Sequence[tuple[str, int, int]]) -> None:
 _BAR_STYLE = """<style>
 .k-bar { display: flex; gap: 2px; height: 28px; margin: 0.5rem 0 0.25rem; }
 .k-bar > div { min-width: 0; overflow: hidden; border-radius: 4px; padding-left: 0.5rem; line-height: 28px; font-weight: 600; white-space: nowrap; }
-.k-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0 0 0.5rem; padding: 0; }
+.k-legend.k-legend { list-style: none; display: flex; flex-wrap: wrap; gap: 0.25rem 1.25rem; margin: 0 0 0.5rem; padding: 0; }
 .k-legend li { display: flex; align-items: center; gap: 0.4rem; }
 .k-legend i { display: inline-block; width: 0.75rem; height: 0.75rem; border-radius: 2px; }
 </style>"""
@@ -627,12 +627,12 @@ def _system_error(result: InvoiceResult) -> None:
 
 def render_case(
     result: InvoiceResult, detail: CaseDetail | None, *, key: str, links: bool = True,
-    payment_rows: Sequence[tuple[str, str]] | None = None,
+    payment_rows: Sequence[tuple[str, str]] | None = None, after_error: Callable[[], None] | None = None,
 ) -> None:
     """One invoice as a case file (design 5.0): outcome, checks, document, approval, payment, run details.
 
-    An ERROR result swaps checks through payment for the system-error container; the Process page adds
-    its own "Process again" button. `links=False` omits the page links (for tests without navigation).
+    An ERROR result swaps checks through payment for the system-error container; `after_error`, when
+    given, runs directly under that container (the Process page puts "Process again" there). `links=False` omits the page links (for tests without navigation).
     `payment_rows`, when given, replaces the default extra rows under a PAID receipt; pages pass ledger
     facts the result doesn't carry ("Stock used" by inventory name, "January spending is now ...").
     May contain widgets keyed under `key`; never call it inside a polling loop.
@@ -642,6 +642,8 @@ def render_case(
     _outcome(result, state.invoice_id if state else None, detail, links)
     if result.status == Status.ERROR:
         _system_error(result)
+        if after_error is not None:
+            after_error()
         _run_details(result, detail, key)
         return
     st.subheader(t("section.checks"), anchor=False)

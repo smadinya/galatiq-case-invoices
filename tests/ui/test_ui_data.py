@@ -1,4 +1,6 @@
+import datetime as dt
 import threading
+from dataclasses import replace
 from decimal import Decimal
 
 import pytest
@@ -52,6 +54,19 @@ def test_queue_budget_stock_and_payments(reader):
     payments = reader.payments()
     assert len(payments) == 5 and all(p.status == "SUCCESS" for p in payments)
     assert reader.starting_stock() == {"WidgetA": 90, "WidgetB": 50, "GadgetX": 13, "FakeItem": 0}
+
+
+def test_budget_ledger_all_includes_other_months(ui_rt_batch):
+    with ui_rt_batch.reader(ui_rt_batch.default_config) as r:
+        assert len(r.budget_ledger_all()) == len(r.budget_ledger()) == 5
+    other = replace(ui_rt_batch.default_config, as_of=dt.date(2026, 2, 15))
+    with ui_rt_batch.reader(other) as r:
+        assert r.budget_ledger() == [] and len(r.budget_ledger_all()) == 5
+
+
+def test_budget_ledger_all_without_a_database(tmp_path):
+    with ReadSession(build_settings(tmp_path), budget_month="2026-01") as r:
+        assert r.budget_ledger_all() == []
 
 
 def test_audit_and_vendors(reader):

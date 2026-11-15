@@ -10,7 +10,6 @@ from decimal import Decimal
 import streamlit as st
 
 from models import FlagCode, InvoiceRecord, InvoiceState, QueueItem, ResolutionPreview, Status
-from service import NotFound, ResolutionRefused
 from ui.kit import components, copy, fmt, live, queue_view as qv, theme
 from ui.kit.jobs import Busy
 from ui.kit.runtime import get_runtime
@@ -75,6 +74,15 @@ def _empty_state(all_items: list[QueueItem], resolved: list[QueueItem], reader) 
     approved, rejected, paid = qv.queue_summary(resolved, reader.payments())
     st.markdown(fmt.md(copy.t("empty.queue_done", approved=approved, rejected=rejected, total=fmt.money(paid))))
     st.page_link("views/3_Ledger.py", label=copy.t("link.ledger"), icon=":material/menu_book:")
+
+
+def _resolved_expander(resolved: list[QueueItem]) -> None:
+    with st.expander(f"Resolved ({len(resolved)})"):
+        if resolved:
+            for item in sorted(resolved, key=lambda i: i.resolved_at or i.created_at, reverse=True):
+                st.markdown(fmt.md(qv.resolved_line(item)))
+        else:
+            st.caption("Nothing resolved yet.")
 
 
 def _flash_panel(flash: dict) -> None:
@@ -144,7 +152,7 @@ def _detail(rt, cfg, reader, item: QueueItem) -> None:
         preview = rt.preview(cfg, item.trace_id, fmt.parse_fx_rate(fx_text))
     except Busy:
         busy = True
-    except NotFound:
+    except qv.NotFound:
         gone = True
     if gone:
         if st.session_state.get("queue.gone_rerun") != item.trace_id:
@@ -251,7 +259,7 @@ def _submit(rt, cfg, item: QueueItem, action: str, note: str, fs: qv.FormState, 
         return
     snapshot = live.follow(job, _render_resolving(item.invoice_ref))
     err = snapshot.error
-    if isinstance(err, ResolutionRefused):
+    if isinstance(err, qv.ResolutionRefused):
         kind = {
             "NoteRequired": "note", "FxRateRequired": "fx", "OverspendConfirmationRequired": "confirm",
             "ApproveNotAllowed": "approve",
@@ -335,6 +343,8 @@ with rt.reader(cfg) as reader:
         st.session_state["queue._qp"] = str(selected)
     if not pending and flash is None:
         _empty_state(everything, resolved, reader)
+        if resolved:  # coming back to a finished queue: the decisions made stay readable
+            _resolved_expander(resolved)
     else:
         left, right = st.columns([1, 2.2], gap="large")
         with left:
@@ -344,12 +354,7 @@ with rt.reader(cfg) as reader:
                     format_func=lambda i: fmt.md(f"{by_id[i].invoice_ref}: {copy.reason_label(by_id[i].reason)}"),
                     captions=[_caption(by_id[i], records[i]) for i in ids], on_change=_on_select,
                 )
-            with st.expander(f"Resolved ({len(resolved)})"):
-                if resolved:
-                    for item in sorted(resolved, key=lambda i: i.resolved_at or i.created_at, reverse=True):
-                        st.markdown(fmt.md(qv.resolved_line(item)))
-                else:
-                    st.caption("Nothing resolved yet.")
+            _resolved_expander(resolved)
         with right:
             notice = st.session_state.get("queue.notice")
             if notice:
