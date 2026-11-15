@@ -11,3 +11,6 @@ data/uploads/
 .screenshots/
 .streamlit/secrets.toml
 ui/.streamlit/secrets.toml
+
+# Planning briefs, implementation plans and the dashboard design spec (local working notes)
+prompts/
