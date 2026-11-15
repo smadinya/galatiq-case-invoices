@@ -1,0 +1,95 @@
+[server]
+maxUploadSize = 10             # MB; invoices are small
+showEmailPrompt = false        # no first-run email prompt
+runOnSave = false
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "viewer"          # keeps the theme switch, hides developer menu items
+showSidebarNavigation = false   # navigation comes from st.navigation in app.py
+
+[theme]
+font = "'IBM Plex Sans':https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap, sans-serif"
+codeFont = "'IBM Plex Mono':https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&display=swap, monospace"
+baseFontSize = 15
+headingFontSizes = ["1.625rem", "1.25rem", "1.0625rem", "0.9375rem", "0.875rem", "0.8125rem"]
+headingFontWeights = [600, 600, 600, 600, 600, 600]
+codeFontSize = "0.8125rem"
+metricValueFontSize = "1.75rem"
+metricValueFontWeight = 500
+baseRadius = "0.25rem"
+buttonRadius = "0.25rem"
+showWidgetBorder = true
+showSidebarBorder = true
+paddingTop = "1.25rem"
+linkUnderline = true
+
+[theme.light]
+primaryColor = "#1D2733"
+backgroundColor = "#F6F8F5"
+secondaryBackgroundColor = "#E8EDE6"
+textColor = "#1D2733"
+linkColor = "#1D2733"
+borderColor = "#CBD4C9"
+dataframeBorderColor = "#DCE3DA"
+dataframeHeaderBackgroundColor = "#EDF1EB"
+codeBackgroundColor = "#EDF1EB"
+greenColor = "#0CA30C"
+greenBackgroundColor = "#D5ECD4"
+greenTextColor = "#0B6B18"
+redColor = "#9C3D0C"
+redBackgroundColor = "#E9DED4"
+redTextColor = "#8A3409"
+yellowColor = "#FAB219"
+yellowBackgroundColor = "#F7EED6"
+yellowTextColor = "#6E4A00"
+violetColor = "#7B2D8E"
+violetBackgroundColor = "#E5DCE7"
+violetTextColor = "#6B2580"
+blueColor = "#2A78D6"
+blueBackgroundColor = "#D9E6F1"
+blueTextColor = "#1C5CAB"
+grayColor = "#898781"
+grayBackgroundColor = "#E7E8E5"
+grayTextColor = "#4A4A46"
+chartCategoricalColors = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300", "#6250d6", "#e34948"]
+
+[theme.light.sidebar]
+backgroundColor = "#ECF0EA"
+secondaryBackgroundColor = "#E1E7DF"
+
+[theme.dark]
+primaryColor = "#5B7590"
+backgroundColor = "#151A18"
+secondaryBackgroundColor = "#1F2622"
+textColor = "#E4EAE3"
+linkColor = "#E4EAE3"
+borderColor = "#33403A"
+dataframeBorderColor = "#2A342F"
+dataframeHeaderBackgroundColor = "#1B211E"
+codeBackgroundColor = "#1B211E"
+greenColor = "#4CC46A"
+greenBackgroundColor = "#213F2A"
+greenTextColor = "#7BD892"
+redColor = "#C0501F"
+redBackgroundColor = "#3B261A"
+redTextColor = "#F2936A"
+yellowColor = "#FAB219"
+yellowBackgroundColor = "#473B18"
+yellowTextColor = "#FBC451"
+violetColor = "#B05CC0"
+violetBackgroundColor = "#37293D"
+violetTextColor = "#D79ADE"
+blueColor = "#3987E5"
+blueBackgroundColor = "#1D3245"
+blueTextColor = "#93BDF0"
+grayColor = "#898781"
+grayBackgroundColor = "#2F322F"
+grayTextColor = "#C9C8BF"
+chartCategoricalColors = ["#3987e5", "#d95926", "#199e70", "#c98500", "#d55181", "#0ca30c", "#9085e9", "#e66767"]
+
+[theme.dark.sidebar]
+backgroundColor = "#111513"
+secondaryBackgroundColor = "#1A201D"
