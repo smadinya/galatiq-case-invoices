@@ -23,6 +23,8 @@ flowchart LR
 
     cli --> svc
     ui --> svc
+    ui -. reads .-> db
+    ui -. reads .-> ckpt
     svc --> graph
     graph --> agents
     agents --> tools
@@ -34,7 +36,7 @@ flowchart LR
 
 | Layer | Rule |
 |---|---|
-| **Interfaces** | Thin wrappers. CLI and Streamlit call the same `service` functions, so tier 1 never depends on tier 2. |
+| **Interfaces** | Thin wrappers. CLI and Streamlit call the same `service` functions, so tier 1 never depends on tier 2. The UI writes only through `Service`, in one background job at a time. It reads through `ui/kit/data.py`, which opens short-lived read-only connections to `acme.db` and `checkpoints.db` for each page run. |
 | **Service** | Owns run lifecycle: trace IDs, the exact-bytes short-circuit, batch ordering, provider selection, banner data, crash containment. |
 | **Graph** | Routing only. Each node delegates to an agent function. |
 | **Agents** | One module per stage. Pure functions `(state, deps) -> state update`. |
@@ -310,7 +312,7 @@ The payment, its stock decrements and its budget entry are written in **one SQLi
 ```
 
 - **Events:** `node_start`, `node_end`, `llm_call`, `tool_call`, `flag_raised`, `ceiling_clamped`, `retry`, `interrupt`, `resume`, `payment`, `error`.
-- **Live display:** the Rich progress view and the Streamlit "Process" page both subscribe to graph stream events (`graph.stream(..., stream_mode="updates")`). The stage animation is the real event stream, not a separate simulation.
+- **Live display:** the Rich progress view subscribes to graph stream events (`graph.stream(..., stream_mode="updates")`). The Streamlit Process page gets the same updates through `run_invoice(on_update)`, plus the JSONL events through a tee logger (`TeeLogger` in `ui/kit/jobs.py`), and polls both from a background job every 0.3 s. The stage display is the real event stream, not a separate simulation.
 
 ---
 
@@ -336,19 +338,36 @@ models.py               Pydantic models: InvoiceState, ExtractedInvoice, Invoice
 policy.md               Human-readable policy served by get_policy (thresholds, human reasons)
 config/settings.toml    Thresholds, weights, budget, as-of, business assumptions
 deps.py obs.py          Dependency bundle passed to nodes; JSONL event logger
-core/                   text.py values.py invoice_math.py (shared name/value/totals helpers)
+core/                   text.py values.py invoice_math.py (shared name/value/totals helpers); metrics.py (run metrics and savings estimate, pure)
 agents/                 ingestion.py validation.py risk.py vp.py critic.py clamp.py human.py payment.py outcome.py _loop.py
 tools/                  registry.py toolsets.py inventory.py vendors.py ledger.py evidence.py policy.py normalize.py grounding.py bank.py
 tools/parsers/          json_.py csv_kv.py csv_table.py xml_.py pdf.py
 llm/                    base.py openai_compat.py recorder.py replay.py fake.py fake_golden.py select.py
 llm/prompts/            extraction.md vp.md critic.md vp_memo.md
 db/                     schema.sql seed.py repo.py
-ui/                     app.py pages/1_Process.py 2_Human_queue.py 3_Ledger.py 4_Batch.py
-scripts/                record.py
+ui/app.py              Dashboard entry: navigation, sidebar, shared style
+ui/views/               1_Process.py 2_Review_queue.py 3_Ledger.py 4_Batch.py (not pages/: see DESIGN §20)
+ui/kit/runtime.py       Cached Runtime: settings, provider choice, job runner; no connections held
+ui/kit/jobs.py          JobRunner (one write lock, one background job), JobContext, TeeLogger
+ui/kit/live.py          Polls a running job and renders its progress
+ui/kit/data.py          Read-only views of acme.db and checkpoints.db (the only UI module that reads storage)
+ui/kit/uploads.py       Content-addressed storage under data/uploads/<hash>/
+ui/kit/sidebar.py       Provider, budget, stock, reset, run settings
+ui/kit/case.py          Case view data: field rows, source lines, chat turns
+ui/kit/components.py    Rendering: case view, badges, tables, chat, receipt
+ui/kit/copy.py          All user-facing wording: FLAG_COPY, REASON_COPY, labels, empty states
+ui/kit/theme.py         Status, severity and ceiling colours and icons; shared stylesheet
+ui/kit/fmt.py           Money, dates, percentages, escaping for untrusted text
+ui/kit/process_view.py queue_view.py ledger_view.py batch_view.py   Page logic behind each view
+ui/kit/testing.py       Injected runtime and scripted fake for AppTest
+ui/.streamlit/config.toml  Theme, upload limit, toolbar
+scripts/                record.py ui_screenshots.py ui_screenshots.mjs (dev tool, not run by pytest)
+data/uploads/           Uploaded invoices (git-ignored)
+.env.example            Template for XAI_API_KEY and model names
 fixtures/replay/        recorded model calls (committed)
 data/invoices/          provided samples (unchanged)
 data/invoices_extra/    INV-2001..2006
-tests/unit/ tests/golden/ tests/live/
+tests/unit/ tests/ui/ tests/golden/ tests/live/
 logs/                   JSONL (git-ignored)
 ```
 
@@ -364,6 +383,9 @@ Tooling: `uv`, Python 3.12, `pyproject.toml`. Run with `uv sync`, `uv run python
 | `tests/golden/test_sample_batch.py` | `ScriptedFake` | Runs all 20 files in order from a freshly seeded temp DB; asserts every row and the ledger in DESIGN §14.2 |
 | `tests/golden/test_replay.py` | `ReplayProvider` | Same batch; asserts final decisions match recordings |
 | `tests/golden/test_extras.py` | both | `data/invoices_extra/` from a fresh reset |
+| `tests/ui/` | `ScriptedFake` | Streamlit `AppTest` against an injected runtime (`ui/kit/testing.py`): each page, the shell, jobs, live polling, uploads, read views, formatting |
+| `tests/ui/test_ui_security.py` | `ScriptedFake` | No secret on screen, hostile document text rendered literally, import rules between layers, no environment loading at import time |
+| `tests/golden/test_ui_walkthrough.py` | `ScriptedFake` | The DESIGN §14.2 demo story through the UI: run the batch, work the queue, then the ledger and a case, with the expected numbers taken from `golden_expected` |
 | `tests/live/` (`-m live`) | Grok | Invariants only |
 
 Every test gets its own temp `acme.db` and `checkpoints.db` through a fixture. No test touches the network unless it is marked `live`.
@@ -374,7 +396,7 @@ Every test gets its own temp `acme.db` and `checkpoints.db` through a fixture. N
 
 | To add | Touch |
 |---|---|
-| A flag | Rule in `agents/validation.py` (or `risk.py`), row in `models.FlagCode` with its severity, line in `policy.md`, golden expectations |
+| A flag | Rule in `agents/validation.py` (or `risk.py`), row in `models.FlagCode` with its severity, line in `policy.md`, an entry in `ui/kit/copy.py` (`FLAG_COPY`), golden expectations |
 | An input format | A parser in `tools/parsers/` returning `ExtractedInvoice`, plus a branch in `load_document` |
 | A provider | A `Provider` implementation in `llm/` and a rule in `llm/select.py` |
-| A human-review reason | `human` severity flag; the queue, CLI and Streamlit pick it up from `human_queue.reason` automatically |
+| A human-review reason | `human` severity flag; the queue, CLI and Streamlit pick it up from `human_queue.reason` automatically. The dashboard also needs a `REASON_COPY` entry in `ui/kit/copy.py` |

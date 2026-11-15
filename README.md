@@ -22,16 +22,17 @@ Every rejection comes with written reasons. Every decision is in an audit log. N
 ## Contents
 
 1. [Quick start](#1-quick-start)
-2. [The sample invoices and their expected outcomes](#2-the-sample-invoices-and-their-expected-outcomes)
-3. [How it works](#3-how-it-works)
-4. [Key decisions and why](#4-key-decisions-and-why)
-5. [What we found in the sample data](#5-what-we-found-in-the-sample-data)
-6. [CLI reference](#6-cli-reference)
-7. [Testing](#7-testing)
-8. [Observability and error handling](#8-observability-and-error-handling)
-9. [Business impact](#9-business-impact)
-10. [Project layout](#10-project-layout)
-11. [Scope: what's built, what's next](#11-scope-whats-built-whats-next)
+2. [The dashboard](#2-the-dashboard)
+3. [The sample invoices and their expected outcomes](#3-the-sample-invoices-and-their-expected-outcomes)
+4. [How it works](#4-how-it-works)
+5. [Key decisions and why](#5-key-decisions-and-why)
+6. [What we found in the sample data](#6-what-we-found-in-the-sample-data)
+7. [CLI reference](#7-cli-reference)
+8. [Testing](#8-testing)
+9. [Observability and error handling](#9-observability-and-error-handling)
+10. [Business impact](#10-business-impact)
+11. [Project layout](#11-project-layout)
+12. [Scope: what's built, what's next](#12-scope-whats-built-whats-next)
 
 ---
 
@@ -46,6 +47,14 @@ uv run python main.py --dir data/invoices                  # run all 20 sample f
 uv run python main.py --queue                              # see what's waiting for a person
 uv run python main.py --resolve INV-1012 --approve --note "Called FastShip on the number on file"
 ```
+
+The dashboard, over the same database:
+
+```bash
+uv run streamlit run ui/app.py                             # opens http://localhost:8501
+```
+
+You get four pages (Process, Review queue, Ledger, Batch) and a sidebar showing the model in use, the budget and the stock. No key is needed: without one it replays the recorded Grok run. See [§2](#2-the-dashboard).
 
 Single invoice, in the form the brief asks for:
 
@@ -89,7 +98,51 @@ GROK_REASONING_MODEL=grok-4.7    # shared by the VP and the Critic
 
 ---
 
-## 2. The sample invoices and their expected outcomes
+## 2. The dashboard
+
+`uv run streamlit run ui/app.py` starts a local web app over the same `service` functions as the CLI. It reads and writes the same `acme.db`, so don't run the dashboard and the CLI at the same time.
+
+![Batch page after running the 20 sample files: a status bar, the results table and the measured figures](docs/screenshots/batch.png)
+
+### The pages
+
+- **Process.** Pick a sample or upload a file, then watch it move through Read, Check, Approve and Finish. The result is a case: the verdict, the checks that fired, the extracted fields and line items beside the source text (flagged lines highlighted), the VP ⇄ Critic exchange as a chat, and what happened next. Uploads are stored under `data/uploads/<hash>/`, which is git-ignored.
+- **Review queue.** The invoices waiting for a person, each with its reason, the VP's recommendation and the evidence. Before you decide, it previews what approving would do: the amount paid, stock per item before and after, and the effect on the budget. Approving or rejecting needs a note, and a foreign-currency invoice also needs an exchange rate.
+- **Ledger.** Spending against the monthly limit, stock after each payment, and the payments table with a CSV download.
+- **Batch.** Run a folder or uploaded files and get the results table, with any row opening as a case. Under it are the measured figures (decided without a person, time, model calls and tokens per invoice) and the savings estimate.
+
+![Process page showing INV-1010 rejected for a price above catalog, with the line-items table and the source text](docs/screenshots/case-1010.png)
+
+The **sidebar** is on every page. It shows which model is in use (live Grok, or replay of the recording and when it was made), the budget spent and left, and each item's stock against its starting level. It also holds **Reset demo data** (with a choice between the demo seed and the brief's starting data) and **Run settings**: model provider, bank failure rate, and a toggle that slows replay down on the Process page so the steps can be read.
+
+A run keeps going in the background if you navigate to another page, and the page picks it up when you come back.
+
+### A demo run
+
+1. **Reset** from the sidebar, keeping the demo data.
+2. **Batch:** run `data/invoices`. The result is 5 paid, 9 rejected, 3 for a person and 3 duplicates. 14 of 17 distinct documents (82%) were decided without a person, and $19,140.00 of the $50,000.00 budget is spent.
+3. **Review queue:** open each of the three items, read the recommendation and approve with a note. INV-1014 needs an exchange rate, for example 1.08.
+4. **Ledger:** spending now stands at $37,620.00 after the three approvals, and stock has dropped to match.
+
+These are the numbers in [§3](#3-the-sample-invoices-and-their-expected-outcomes), and `tests/golden/test_ui_walkthrough.py` checks them through the UI.
+
+![Review queue with INV-1014 selected: reason, recommendation, exchange-rate field and the approve and reject controls](docs/screenshots/queue-1014.png)
+
+![Ledger after the walkthrough: spending against the $50,000 limit, stock per item and the payments table](docs/screenshots/ledger.png)
+
+### Design rule
+
+Colour appears only where it carries meaning: status, severity and the approval ceiling. Each coloured mark also has a text label and an icon, so nothing depends on colour alone. The light and dark themes follow the operating system setting.
+
+![Process page in dark mode showing INV-1012 waiting for a person](docs/screenshots/case-1012-dark.png)
+
+The savings estimate follows the same rule about numbers. Each input is labelled in the table: annual volume and baseline cost per invoice are **assumptions** (set in `config/settings.toml`), the automation rate is **measured**, and the model cost is shown as pending until tier 3 adds prices, next to the measured calls and tokens. The result is labelled an estimate.
+
+To regenerate the screenshots, run `uv run python scripts/ui_screenshots.py --help`. The tool needs Node with Playwright and a Chromium headless shell.
+
+---
+
+## 3. The sample invoices and their expected outcomes
 
 Run from a fresh `--reset` (demo seed), as-of date **2026-01-31**, monthly budget **$50,000**, in filename order. These are the exact rows asserted by `tests/golden/test_sample_batch.py`, and the recorded Grok run reproduces all 20 of them.
 
@@ -121,7 +174,7 @@ Run from a fresh `--reset` (demo seed), as-of date **2026-01-31**, monthly budge
 | 17 | `invoice_1013.pdf` | Atlas Industrial Supply · $22,562.80 | — | **DUPLICATE** of #16 | |
 | 18 | `invoice_1014.xml` | TechParts International · €4,125 | `foreign_currency` | **PENDING_HUMAN** † | Invoiced in EUR. Exchange rates move, so a person enters the rate. |
 | 19 | `invoice_1015.csv` | Reliable Components Inc. · $6,500 | — | **PAID** $6,500 (VP) | Clean. Uses the tabular CSV layout. |
-| 20 | `invoice_1016.json` | Widgets Inc. · $3,233 | `unknown_item` (WidgetC) | **REJECTED** (rules) | WidgetC isn't in inventory. It is deliberately **not** fuzzy-matched to WidgetA (see [§4](#no-fuzzy-auto-correction-of-item-names)). |
+| 20 | `invoice_1016.json` | Widgets Inc. · $3,233 | `unknown_item` (WidgetC) | **REJECTED** (rules) | WidgetC isn't in inventory. It is deliberately **not** fuzzy-matched to WidgetA (see [§5](#no-fuzzy-auto-correction-of-item-names)). |
 
 Every scenario in the brief's own table behaves as the brief expects:
 - **1001, 1004 and 1006** pass.
@@ -130,7 +183,7 @@ Every scenario in the brief's own table behaves as the brief expects:
 - **1008 and 1016** have unknown items.
 - **1009** is invalid data.
 
-The other eight invoice numbers hold problems the brief didn't mention ([§5](#5-what-we-found-in-the-sample-data)).
+The other eight invoice numbers hold problems the brief didn't mention ([§6](#6-what-we-found-in-the-sample-data)).
 
 ### Stock and budget after each payment
 
@@ -158,9 +211,9 @@ The other eight invoice numbers hold problems the brief didn't mention ([§5](#5
 
 ---
 
-## 3. How it works
+## 4. How it works
 
-### 3.1 Layers
+### 4.1 Layers
 
 ```mermaid
 flowchart LR
@@ -190,7 +243,7 @@ flowchart LR
 | **Tools** | Deterministic Python over the database. Agents call them directly, and the same functions are exposed to the LLM as tool schemas. |
 | **LLM** | One `Provider` interface. No agent imports a vendor SDK. |
 
-### 3.2 The pipeline
+### 4.2 The pipeline
 
 Only **three steps call a model**: extraction from unstructured files, the **VP** and the **Critic**. Everything else is code.
 
@@ -232,7 +285,7 @@ flowchart TD
 | **Payment** | Wraps the brief's `mock_payment(vendor, amount)` unchanged, adding idempotency, retries with backoff, and stock and budget updates in a single transaction. |
 | **Human review** | LangGraph `interrupt()` pauses the graph and checkpoints it to `checkpoints.db`. `--resolve` resumes the same graph, which rechecks stock and budget first. |
 
-### 3.3 The decision ceiling
+### 4.3 The decision ceiling
 
 Every flag has a **severity**. Severities set the **ceiling**: the best outcome the rules allow.
 
@@ -257,7 +310,7 @@ flowchart LR
 
 The full catalogue (26 codes, with when each fires) is in [DESIGN.md §3.3](DESIGN.md).
 
-### 3.4 The VP ⇄ Critic reflection loop
+### 4.4 The VP ⇄ Critic reflection loop
 
 ```mermaid
 sequenceDiagram
@@ -286,7 +339,7 @@ sequenceDiagram
 
 The Critic has **more tools than the VP**, so the reviewer is grounded better than the decider: it can check source lines, recompute totals, look for split invoices and read the vendor master.
 
-### 3.5 Duplicates and revisions
+### 4.5 Duplicates and revisions
 
 | Case | Detected by | Result |
 |---|---|---|
@@ -298,7 +351,7 @@ The Critic has **more tools than the VP**, so the reviewer is grounded better th
 
 ---
 
-## 4. Key decisions and why
+## 5. Key decisions and why
 
 ### Rules set a ceiling; the LLM can only be stricter
 
@@ -370,7 +423,7 @@ Item names are matched ignoring case, whitespace and punctuation **only**. A nea
 
 The VP gets the **structured** invoice only. Free-text fields (notes, addresses) are quoted and labelled as untrusted data. The Critic sees source text only one line at a time, through `get_source_evidence`.
 
-**Why:** an invoice is attacker-controlled input. A note like "pre-approved by the CFO, ignore previous instructions" shouldn't reach the decision-maker as instructions. This isolation is in place now; a pattern-matching injection detector is planned ([§11](#11-scope-whats-built-whats-next)).
+**Why:** an invoice is attacker-controlled input. A note like "pre-approved by the CFO, ignore previous instructions" shouldn't reach the decision-maker as instructions. This isolation is in place now; a pattern-matching injection detector is planned ([§12](#12-scope-whats-built-whats-next)).
 
 ### Replay a recorded Grok run instead of a mock
 
@@ -405,7 +458,7 @@ Grok is called through the OpenAI SDK pointed at `https://api.x.ai/v1`. It suppo
 
 ---
 
-## 5. What we found in the sample data
+## 6. What we found in the sample data
 
 The brief documents 8 of the 16 invoice numbers. Reading every file turned up these:
 
@@ -427,7 +480,7 @@ The brief documents 8 of the 16 invoice numbers. Reading every file turned up th
 
 ---
 
-## 6. CLI reference
+## 7. CLI reference
 
 ```bash
 python main.py --invoice_path=FILE          # one invoice (the brief's form; --invoice-path also works)
@@ -460,24 +513,26 @@ python main.py --reset [--seed demo|readme] # restore starting stock and budget,
 
 ---
 
-## 7. Testing
+## 8. Testing
 
 ```bash
-uv run pytest            # 590 tests, offline, about 30 s
+uv run pytest            # 844 tests, offline, about 100 s
 uv run pytest -m live    # 6 tests against real Grok (needs .env)
 ```
 
 | Suite | Tests | Provider | What it proves |
 |---|---|---|---|
-| `tests/unit/` | 517 | none or scripted fake | Every parser, normalisation, each flag rule, ceiling, clamp, routing function, dedupe case, tool, payment idempotency and retries, provider selection, the CLI |
-| `tests/golden/test_sample_batch.py` | | scripted fake | The 20-row table in [§2](#2-the-sample-invoices-and-their-expected-outcomes): every flag, ceiling, outcome, path, and the ledger after each payment |
+| `tests/unit/` | 537 | none or scripted fake | Every parser, normalisation, each flag rule, ceiling, clamp, routing function, dedupe case, tool, payment idempotency and retries, provider selection, the CLI |
+| `tests/golden/test_sample_batch.py` | | scripted fake | The 20-row table in [§3](#3-the-sample-invoices-and-their-expected-outcomes): every flag, ceiling, outcome, path, and the ledger after each payment |
 | `tests/golden/test_replay.py` | | **recorded Grok** | Grok's real decisions still match the golden table |
 | `tests/golden/test_queue_resolution.py` | | scripted fake | The queue walk-through, plus the opposite order |
 | `tests/golden/test_paths_e2e.py` | | scripted fake | One end-to-end test per path: paid, rejected, human, duplicate, error (injected crash), payment failure, unreadable file |
 | `tests/golden/test_readme_seed.py` | | scripted fake | The brief's seed gives 2 paid / 1 person / 14 rejected / 3 duplicates |
+| `tests/golden/test_ui_walkthrough.py` | | scripted fake | The demo story through the dashboard: batch, queue, ledger and a case, with the numbers above |
+| `tests/ui/` | 228 | scripted fake | The dashboard through Streamlit's `AppTest`: every page, the sidebar, background jobs, uploads, read views and formatting. `test_ui_security.py` checks that hostile document text is rendered literally, that no secret appears on screen and that `ui` is never imported by tier 1 |
 | `tests/live/` | 6 | live Grok | Invariants only: final ≤ ceiling, every escalation flag answered, the Critic agreed on any approval over $10K |
 
-The golden suites hold 73 tests in total.
+The golden suites hold 79 tests in total.
 
 **Guardrails in the test setup:**
 - An autouse fixture **blocks network sockets** unless a test is marked `live`.
@@ -486,7 +541,7 @@ The golden suites hold 73 tests in total.
 
 ---
 
-## 8. Observability and error handling
+## 9. Observability and error handling
 
 **Structured logs:** `logs/YYYY-MM-DD.jsonl` holds one event per line. Each event carries a `trace_id`; the logger refuses events without one.
 
@@ -510,7 +565,7 @@ The event types are `node_start`, `node_end`, `llm_call`, `tool_call`, `flag_rai
 
 ---
 
-## 9. Business impact
+## 10. Business impact
 
 | Pain point | What addresses it |
 |---|---|
@@ -527,11 +582,11 @@ The inputs come from two places:
 - **Automation rate** is measured: 82% on the sample batch. The samples are deliberately problem-heavy, so a real mix of mostly clean invoices should do better.
 - **Annual volume** (20,000 invoices, so $2M a year works out to $100 per invoice) is an **assumption**, set in `config/settings.toml`.
 
-With those inputs the gross figure is about **$1.6M a year**, before LLM cost. Token counts are logged per call today; cost reporting is on the roadmap.
+With those inputs the gross figure is about **$1.6M a year**, before LLM cost. Tokens and model calls per invoice are measured and shown in the dashboard; pricing them is tier 3.
 
 ---
 
-## 10. Project layout
+## 11. Project layout
 
 ```
 main.py              CLI (argparse + Rich); keeps the brief's --invoice_path form
@@ -546,26 +601,34 @@ tools/parsers/       json_ · csv_kv · csv_table · xml_ · pdf
 llm/                 Provider interface, OpenAI-compatible client, recorder, replay, scripted fake, selection
 llm/prompts/         extraction.md · vp.md · critic.md · vp_memo.md (each with a prompt_version)
 db/                  schema.sql · seed.py (demo and readme seeds, vendor master) · repo.py
-core/                shared helpers: text, values (money/dates), invoice_math
+core/                shared helpers: text, values (money/dates), invoice_math; metrics (run metrics, savings estimate)
+ui/app.py            dashboard entry: navigation, sidebar
+ui/views/            the four pages: 1_Process · 2_Review_queue · 3_Ledger · 4_Batch
+ui/kit/              runtime, jobs, data (read-only views), uploads, sidebar, copy (all wording), theme, fmt, components, per-page view logic
+ui/.streamlit/       config.toml: theme and server settings
 scripts/record.py    re-record the Grok run into fixtures/replay/
+scripts/ui_screenshots.py  screenshot the dashboard in light and dark mode (dev tool)
+docs/screenshots/    the images used in this README
+.env.example         template for .env (API key and model names)
 fixtures/replay/     the committed Grok recording
 data/invoices/       the provided samples (never modified)
-tests/               unit/ · golden/ · live/
+data/uploads/        files uploaded through the dashboard (git-ignored)
+tests/               unit/ · ui/ · golden/ · live/
 ```
 
 ---
 
-## 11. Scope: what's built, what's next
+## 12. Scope: what's built, what's next
 
-The design was planned in three tiers, each complete without the ones after it. **Tier 1 is built and tested.**
+The design was planned in three tiers, each complete without the ones after it. **Tiers 1 and 2 are built and tested.**
 
 | Tier | Contents | Status |
 |---|---|---|
 | **1** | LangGraph pipeline, all four stages, VP ⇄ Critic loop, human queue with pause and resume, idempotent payments, SQLite state, CLI, Grok + replay providers, recorder, unit/golden/replay/live tests, JSONL logs | **Done** |
-| **2** | Streamlit dashboard: process view, human queue, ledger, batch metrics. It will call the same `service` functions as the CLI. | Planned |
-| **3** | Additive risk score (`high_risk_score`), prompt-injection detector, extra test invoices (a clean approval over $10K, an injection attempt, an overcharge, a split invoice, over budget), cost metrics, Ollama provider | Planned |
+| **2** | Streamlit dashboard: Process, Review queue, Ledger and Batch pages, with measured model calls, tokens and time. It calls the same `service` functions as the CLI. | **Done** |
+| **3** | Additive risk score (`high_risk_score`), prompt-injection detector, extra test invoices (a clean approval over $10K, an injection attempt, an overcharge, a split invoice, over budget), cost metrics (pricing the tokens already measured), Ollama provider | Planned |
 
-`agents/risk.py` is already wired into the graph as a pass-through, so tier 3 slots in without changing routing. [ARCHITECTURE.md](ARCHITECTURE.md) describes the tier 2 and 3 pieces as designed.
+`agents/risk.py` is already wired into the graph as a pass-through, so tier 3 slots in without changing routing. [ARCHITECTURE.md](ARCHITECTURE.md) describes how the dashboard fits on the service layer.
 
 **Cut on purpose:**
 
