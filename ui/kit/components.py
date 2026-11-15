@@ -527,13 +527,18 @@ def _first_sentence(text: str) -> str:
     return head + sep.strip() if sep else text
 
 
-def _payment_section(result: InvoiceResult, detail: CaseDetail | None, key: str, links: bool) -> None:
+def _payment_section(
+    result: InvoiceResult, detail: CaseDetail | None, key: str, links: bool,
+    payment_rows: Sequence[tuple[str, str]] | None,
+) -> None:
     state = detail.state if detail else None
     status = result.status
     st.subheader(t("section.payment" if status == Status.PAID else "section.next_step"), anchor=False)
     if status == Status.PAID and result.payment is not None:
-        stock = _stock_used(result, state)
-        receipt(result.payment, key=f"{key}.receipt", extra_rows=[(t("pay.stock_used"), stock)] if stock else ())
+        if payment_rows is None:
+            stock = _stock_used(result, state)
+            payment_rows = [(t("pay.stock_used"), stock)] if stock else []
+        receipt(result.payment, key=f"{key}.receipt", extra_rows=payment_rows)
         return
     cur = result.currency
     if status == Status.PENDING_HUMAN:
@@ -620,11 +625,16 @@ def _system_error(result: InvoiceResult) -> None:
         st.caption(fmt.md(t("error.system_trace", trace_id=result.trace_id)))
 
 
-def render_case(result: InvoiceResult, detail: CaseDetail | None, *, key: str, links: bool = True) -> None:
+def render_case(
+    result: InvoiceResult, detail: CaseDetail | None, *, key: str, links: bool = True,
+    payment_rows: Sequence[tuple[str, str]] | None = None,
+) -> None:
     """One invoice as a case file (design 5.0): outcome, checks, document, approval, payment, run details.
 
     An ERROR result swaps checks through payment for the system-error container; the Process page adds
     its own "Process again" button. `links=False` omits the page links (for tests without navigation).
+    `payment_rows`, when given, replaces the default extra rows under a PAID receipt; pages pass ledger
+    facts the result doesn't carry ("Stock used" by inventory name, "January spending is now ...").
     May contain widgets keyed under `key`; never call it inside a polling loop.
     """
     theme.style()
@@ -640,5 +650,5 @@ def render_case(result: InvoiceResult, detail: CaseDetail | None, *, key: str, l
         st.caption(fmt.md(t(f"address.{result.address_check}")))
     _document(result, detail, key)
     _approval(result, key)
-    _payment_section(result, detail, key, links)
+    _payment_section(result, detail, key, links, payment_rows)
     _run_details(result, detail, key)

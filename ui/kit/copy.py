@@ -40,7 +40,7 @@ next step    next.pending {reason}, next.rejected {why}, next.duplicate {file} {
              next.credit_plain {credit}, next.superseded
 payment      pay.paid_to, pay.amount, pay.rate, pay.rate_value {rate} {currency}, pay.in_dollars,
              pay.attempts, pay.attempts_one, pay.attempts_retried {n} {failed}, pay.paid_at,
-             pay.receipt, pay.stock_used, pay.credit_line {credit}
+             pay.receipt, pay.stock_used, pay.spending_after {month}, pay.credit_line {credit}
 error        error.system_title, error.system_body, error.system_trace {trace_id},
              error.no_model_title, error.no_model_sidebar, error.system
 info         info.stored, info.rerun_batch {n}, info.replay_slowed
@@ -868,6 +868,7 @@ TEXT: dict[str, str] = {
     "pay.paid_at": "Paid at",
     "pay.receipt": "Receipt",
     "pay.stock_used": "Stock used",
+    "pay.spending_after": "{month} spending after this payment",
     "pay.credit_line": "Credit due from the vendor: {credit}",
     # errors, info, warnings (6.7)
     "error.system_title": "System error",
