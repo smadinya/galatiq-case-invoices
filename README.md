@@ -63,6 +63,20 @@ uv run python main.py --invoice_path=data/invoices/invoice_1001.txt
 uv run python main.py --invoice_path=data/invoices/invoice_1001.txt --json   # one JSON object, nothing else
 ```
 
+### Running offline
+
+You don't need an API key or network access to see the system work. There are two ways:
+
+- **Run the tests.** `uv run pytest` runs 844 tests offline in about 100 s. They include the golden batch (with a scripted VP and Critic), a replay of the real Grok run, and the dashboard walkthrough. Network sockets are blocked during tests, and the 6 live tests are skipped unless you ask for them with `-m live`. See [§8](#8-testing).
+- **Use replay mode.** The real Grok responses from a full batch are committed under `fixtures/replay/`, and replay serves them instead of calling the API. It is chosen automatically when no key is set. To force it, pass `--provider replay` to the CLI, or pick Replay under the dashboard's Run settings:
+
+  ```bash
+  uv run python main.py --reset
+  uv run python main.py --dir data/invoices --provider replay
+  ```
+
+  Replay covers the 20 sample files. It reproduces the recorded run exactly when they are processed as a batch from a fresh reset. A file with no recording, such as your own upload, needs live Grok.
+
 ### Live Grok: setting up `.env`
 
 You don't need a `.env` file to run the samples. Without a key, the system replays the committed Grok recording. To call Grok live, copy the template and add your xAI API key:
@@ -109,7 +123,7 @@ GROK_REASONING_MODEL=grok-4.7    # shared by the VP and the Critic
 - **Process.** Pick a sample or upload a file, then watch it move through Read, Check, Approve and Finish. The result is a case: the verdict, the checks that fired, the extracted fields and line items beside the source text (flagged lines highlighted), the VP ⇄ Critic exchange as a chat, and what happened next. Uploads are stored under `data/uploads/<hash>/`, which is git-ignored.
 - **Review queue.** The invoices waiting for a person, each with its reason, the VP's recommendation and the evidence. Before you decide, it previews what approving would do: the amount paid, stock per item before and after, and the effect on the budget. Approving or rejecting needs a note, and a foreign-currency invoice also needs an exchange rate.
 - **Ledger.** Spending against the monthly limit, stock after each payment, and the payments table with a CSV download.
-- **Batch.** Run a folder or uploaded files and get the results table, with any row opening as a case. Under it are the measured figures (decided without a person, time, model calls and tokens per invoice) and the savings estimate.
+- **Batch.** Run a folder or uploaded files and get the results table, with any row opening as a case. Under it are the measured figures (decided without a person, time, model calls and tokens per invoice) and the savings estimate, with each input labelled as an assumption or a measurement. Model cost shows as not priced yet until tier 3.
 
 ![Process page showing INV-1010 rejected for a price above catalog, with the line-items table and the source text](docs/screenshots/case-1010.png)
 
@@ -129,14 +143,6 @@ These are the numbers in [§3](#3-the-sample-invoices-and-their-expected-outcome
 ![Review queue with INV-1014 selected: reason, recommendation, exchange-rate field and the approve and reject controls](docs/screenshots/queue-1014.png)
 
 ![Ledger after the walkthrough: spending against the $50,000 limit, stock per item and the payments table](docs/screenshots/ledger.png)
-
-### Design rule
-
-Colour appears only where it carries meaning: status, severity and the approval ceiling. Each coloured mark also has a text label and an icon, so nothing depends on colour alone. The light and dark themes follow the operating system setting.
-
-![Process page in dark mode showing INV-1012 waiting for a person](docs/screenshots/case-1012-dark.png)
-
-The savings estimate follows the same rule about numbers. Each input is labelled in the table: annual volume and baseline cost per invoice are **assumptions** (set in `config/settings.toml`), the automation rate is **measured**, and the model cost is shown as pending until tier 3 adds prices, next to the measured calls and tokens. The result is labelled an estimate.
 
 To regenerate the screenshots, run `uv run python scripts/ui_screenshots.py --help`. The tool needs Node with Playwright and a Chromium headless shell.
 
@@ -213,93 +219,36 @@ The other eight invoice numbers hold problems the brief didn't mention ([§6](#6
 
 ## 4. How it works
 
-### 4.1 Layers
+### 4.1 The four stages
 
 ```mermaid
 flowchart LR
-    cli["main.py<br/>CLI · Rich or --json"]
-    svc["service.py<br/>run · batch · queue · preview · resolve · reset"]
-    lgraph["graph.py<br/>LangGraph state machine"]
-    agents["agents/<br/>one module per stage"]
-    tools["tools/<br/>parsers · inventory · vendors<br/>ledger · evidence · policy"]
-    llm["llm/<br/>Grok · replay · recorder · scripted fake"]
-    db[("acme.db<br/>stock · vendors · invoices<br/>payments · budget · audit_log")]
-    ckpt[("checkpoints.db<br/>paused graphs")]
-    logs[["logs/*.jsonl"]]
-
-    cli --> svc --> lgraph --> agents
-    agents --> tools --> db
-    agents --> llm
-    lgraph --> ckpt
-    svc --> logs
+    file(["Invoice file<br/>PDF, TXT, JSON, CSV, XML"]) --> ingest["1. Ingest<br/>code, plus an LLM for TXT and PDF"]
+    ingest --> validate["2. Validate<br/>code only"]
+    validate --> approve["3. Approve<br/>LLM agents, capped by code"]
+    approve --> pay["4. Pay<br/>code only"]
+    approve --> person[["Person<br/>six reasons only"]]
+    person --> pay
+    validate --> duplicate(["Duplicate"])
+    approve --> rejected(["Rejected"])
+    pay --> paid(["Paid"])
 ```
 
-| Layer | Rule |
-|---|---|
-| **CLI** | A thin wrapper over `service`, so a future UI calls the same functions. |
-| **Service** | Owns the run lifecycle: trace IDs, the exact-bytes short-circuit, batch order, provider selection, crash containment. |
-| **Graph** | Routing only. Each node delegates to an agent function. |
-| **Agents** | One module per stage. Each node is a pure function `(state, deps) → state update`. |
-| **Tools** | Deterministic Python over the database. Agents call them directly, and the same functions are exposed to the LLM as tool schemas. |
-| **LLM** | One `Provider` interface. No agent imports a vendor SDK. |
+| Stage | Deterministic? | What it does |
+|---|---|---|
+| **1. Ingest** | Code for JSON, CSV and XML. For TXT and PDF, an LLM (Grok) extracts the fields and code checks the result. | Turns the file into a structured invoice: vendor, number, dates, line items and totals. For TXT and PDF, code confirms that every extracted value actually appears in the source text. A failure gets one retry, then goes to a person. Values are normalised (`INV-NNNN`, ISO dates, `Decimal` money). |
+| **2. Validate** | Code | Catches duplicates and revisions. Checks every line against stock and catalog prices, recomputes the totals, and checks the vendor, its address, the due date and the budget. Each problem raises a flag, and the worst flag sets the **ceiling**: the best outcome the rules allow. |
+| **3. Approve** | LLM agents (VP and Critic), capped by code | The VP decides using lookup tools and must answer every escalation flag in writing. Above $9,000, or with an escalation flag, the Critic reviews it with more tools and can send it back, for up to three rounds. Code then caps the decision at the ceiling. When the ceiling is Reject, the VP only writes the rejection memo. |
+| **4. Pay** | Code | Calls the brief's `mock_payment` unchanged, with retries and idempotency, and updates stock and budget in one transaction. If payment keeps failing, the invoice goes to a person. |
+| **Person** | A person decides; code rechecks | Only for six reasons: foreign currency, a revision or reused invoice number, over budget, a renamed vendor, a failed payment, or an unreadable document. The run pauses and resumes from the CLI or the dashboard, and stock and budget are checked again before paying. |
 
-### 4.2 The pipeline
+**Only three steps call a model:** extraction from TXT and PDF, the VP, and the Critic. Everything that decides whether money can move is code: the flags, the ceiling, the cap on the agents' decision, the stock and budget checks, and the payment. The agents can make an outcome stricter, never more generous.
 
-Only **three steps call a model**: extraction from unstructured files, the **VP** and the **Critic**. Everything else is code.
+**Around the stages:** the CLI and the dashboard are thin front ends over the same service. LangGraph runs the stages, and can pause an invoice for a person and resume it later. SQLite holds stock, budget, invoices, payments and paused runs, and every step is logged as JSON lines with a trace ID. [ARCHITECTURE.md](ARCHITECTURE.md) has the module-level detail.
 
-```mermaid
-flowchart TD
-    file(["invoice file"]) --> load["load_document"]
-    load -->|"JSON / CSV / XML"| parse["parse_structured<br/>(code only)"]
-    load -->|"TXT / PDF"| extract["extract_with_llm<br/>(Grok, structured output)"]
-    extract --> ground{"ground_check<br/>is every value in the source?"}
-    ground -->|"no: one retry with the error"| extract
-    ground -->|"yes"| norm["normalize"]
-    parse --> norm
-    norm --> dedupe{"dedupe"}
-    dedupe -->|"same invoice, other file"| dup(["DUPLICATE"])
-    dedupe --> validate["validate<br/>flags · address check"]
-    validate --> ceiling{"compute_ceiling"}
-    ceiling -->|"REJECT"| memo["VP writes the memo"]
-    ceiling -->|"HUMAN or APPROVE"| vp["VP decides<br/>(tool calls)"]
-    vp -->|"under $9K, no escalation flag"| clamp
-    vp -->|"otherwise"| critic["Critic reviews<br/>(extra tools)"]
-    critic -->|"objects, rounds left"| vp
-    critic -->|"agrees, or 3 rounds done"| clamp{"clamp<br/>min(decision, ceiling)"}
-    clamp -->|"APPROVE"| pay["pay<br/>idempotent, retries"]
-    clamp -->|"REJECT"| rej(["REJECTED"])
-    memo --> rej
-    clamp -->|"HUMAN"| human[["human queue<br/>(graph paused)"]]
-    ground -->|"fails twice"| human
-    human -->|"approve, rechecks pass"| pay
-    human -->|"reject, or stock now short"| rej
-    pay -->|"still failing after retries"| human
-    pay --> paid(["PAID"])
-```
+### 4.2 The decision ceiling
 
-| Stage | What happens |
-|---|---|
-| **Ingestion** | Structured files (JSON, two CSV layouts, XML) are parsed by code. TXT and PDF go to Grok with a strict output schema, which also carries a list of corrections (`2O26 → 2026`). The **grounding check** then confirms every extracted item, quantity and amount actually appears in the source. On failure it sends the error back for one retry; a second failure goes to a person. **Normalisation** produces `INV-NNNN` numbers, ISO dates and `Decimal` money. |
-| **Validation** | Deterministic Python. It runs the duplicate and revision check, raises every rule flag, checks the vendor's address against the vendor master, and computes the **ceiling**. |
-| **Approval** | The VP agent decides using tools. The Critic agent reviews with extra tools. Code then clamps the result to the ceiling. |
-| **Payment** | Wraps the brief's `mock_payment(vendor, amount)` unchanged, adding idempotency, retries with backoff, and stock and budget updates in a single transaction. |
-| **Human review** | LangGraph `interrupt()` pauses the graph and checkpoints it to `checkpoints.db`. `--resolve` resumes the same graph, which rechecks stock and budget first. |
-
-### 4.3 The decision ceiling
-
-Every flag has a **severity**. Severities set the **ceiling**: the best outcome the rules allow.
-
-```mermaid
-flowchart LR
-    flags["Flags from validation"] --> sev{"Worst severity"}
-    sev -->|"error"| R["Ceiling REJECT<br/>VP only writes the memo"]
-    sev -->|"human"| H["Ceiling HUMAN<br/>VP + Critic recommend"]
-    sev -->|"escalation / info / none"| A["Ceiling APPROVE<br/>VP decides (Critic if escalation)"]
-    R --> min
-    H --> min
-    A --> min
-    llm["VP / Critic decision"] --> min["final = min(decision, ceiling)<br/>REJECT #lt; HUMAN #lt; APPROVE"]
-```
+Every flag has a **severity**, and the worst severity sets the **ceiling**: the best outcome the rules allow. The final decision is the agents' decision capped at the ceiling, in the order Reject < Person < Approve.
 
 | Severity | Effect | Examples |
 |---|---|---|
@@ -310,25 +259,15 @@ flowchart LR
 
 The full catalogue (26 codes, with when each fires) is in [DESIGN.md §3.3](DESIGN.md).
 
-### 4.4 The VP ⇄ Critic reflection loop
+### 4.3 The VP ⇄ Critic reflection loop
 
 ```mermaid
-sequenceDiagram
-    participant V as VP agent (Grok)
-    participant T as Tools
-    participant C as Critic agent (Grok)
-    participant K as Clamp (code)
-
-    V->>T: get_policy · get_stock_level · get_vendor_history · get_budget_status
-    V->>C: decision, reasoning, a written answer to every escalation flag
-    C->>T: same four, plus get_source_evidence · recompute_totals ·<br/>find_similar_invoices · get_vendor_master · get_pipeline_trace
-    alt Critic objects and rounds are left (max 3)
-        C->>V: objections, each with evidence and a requested change
-        V->>C: revised decision, answering every objection
-    else Critic agrees, or 3 rounds are done
-        C->>K: verdict
-    end
-    Note over K: final = min(decision, ceiling)<br/>approval over $10K needs the Critic's AGREE<br/>deadlock → the stricter decision wins
+flowchart LR
+    vp["VP decides<br/>looks up stock, budget,<br/>vendor history and policy"] --> check{"Over $9,000, an escalation<br/>flag, or a Person ceiling?"}
+    check -->|no| cap["Code caps the decision<br/>at the ceiling"]
+    check -->|yes| critic["Critic reviews<br/>also checks the source text,<br/>totals and split invoices"]
+    critic -->|"objects, up to 3 rounds"| vp
+    critic -->|agrees| cap
 ```
 
 | Situation | Path |
@@ -337,9 +276,9 @@ sequenceDiagram
 | Ceiling APPROVE, **under $9,000**, no escalation flag | **Fast path:** the VP alone. It may approve or be stricter. |
 | Everything else | **VP ⇄ Critic**, up to 3 Critic reviews |
 
-The Critic has **more tools than the VP**, so the reviewer is grounded better than the decider: it can check source lines, recompute totals, look for split invoices and read the vendor master.
+An approval over $10,000 needs the Critic's agreement, and if the two still disagree after three rounds, the stricter decision wins. The Critic has **more tools than the VP**, so the reviewer is better grounded than the decider: it can check source lines, recompute totals, look for split invoices and read the vendor master.
 
-### 4.5 Duplicates and revisions
+### 4.4 Duplicates and revisions
 
 | Case | Detected by | Result |
 |---|---|---|
