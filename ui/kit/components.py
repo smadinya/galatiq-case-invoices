@@ -350,26 +350,30 @@ def _outcome(result: InvoiceResult, state_invoice_id: int | None, detail: CaseDe
         st.info(t("case.stored", date=fmt.day(processed.date())) if processed else t("case.stored_undated"))
 
 
-def _check_column(rows: Sequence[FieldRow], mode: str) -> tuple[list[list[str]], dict[str, Any]]:
+def _check_column(rows: Sequence[FieldRow], mode: str, width: Any = "medium") -> tuple[list[list[str]], dict[str, Any]]:
     cells = [[copy.flag_label(f) for f in r.flags] for r in rows]
     colours = {copy.flag_label(f): TINT[mode][SEVERITY[f.severity].token] for r in rows for f in r.flags}
     config: dict[str, Any] = {}
     if colours:
         options = sorted(colours)
         config["Check"] = st.column_config.MultiselectColumn(
-            "Check", options=options, color=[colours[o] for o in options], width="medium"
+            "Check", options=options, color=[colours[o] for o in options], width=width
         )
     return cells, config
 
 
-def _table(columns: dict[str, list[Any]], rows: Sequence[FieldRow], key: str, alt: str, *, right: Sequence[str] = ()) -> None:
+def _table(columns: dict[str, list[Any]], rows: Sequence[FieldRow], key: str, alt: str, *, right: Sequence[str] = (), narrow: dict[str, int] | None = None) -> None:
     mode = theme.theme_type()
-    cells, config = _check_column(rows, mode)
+    cells, config = _check_column(rows, mode, (narrow or {}).get("Check", "medium"))
     frame = pd.DataFrame(columns)
     if config:
         frame["Check"] = pd.Series(cells, index=frame.index, dtype=object)
     for name in right:
         config[name] = st.column_config.TextColumn(name, alignment="right")
+    for name, px in (narrow or {}).items():
+        if name == "Check":
+            continue
+        config[name] = st.column_config.TextColumn(name, width=px, alignment="right" if name in right else "left")
     st.dataframe(frame, hide_index=True, column_config=config, key=key, alt=alt, width="stretch")
 
 
@@ -391,18 +395,28 @@ def _lines_table(result: InvoiceResult, detail: CaseDetail | None, rows: Sequenc
         FieldRow(f"line_items[{i}]", f"line {i + 1}", "", None, None, False, (), tuple({id(f): f for r in g for f in r.flags}.values()), None)
         for i, g in enumerate(line_rows)
     ]
-    columns = {
-        "#": [str(i + 1) for i in range(len(invoice.line_items))],
-        "Item": [ln.item for ln in invoice.line_items],
-        "Qty": [str(ln.quantity) for ln in invoice.line_items],
-        "Unit price": [fmt.money(ln.unit_price, cur) for ln in invoice.line_items],
-        "Amount": [_display(fmt.money(ln.amount, cur) if ln.amount is not None else None) for ln in invoice.line_items],
-        "Recomputed": [
-            fmt.money(checks[i].recomputed_amount, cur) if i in checks else "-" for i in range(len(invoice.line_items))
-        ],
-        "Note": [ln.note or "" for ln in invoice.line_items],
+    columns = _line_columns(invoice, checks)
+    right = tuple(c for c in ("Qty", "Unit price", "Amount", "Recomputed") if c in columns)
+    _table(columns, merged, key, "Line items", right=right, narrow={"#": 28, "Item": 112, "Qty": 36, "Unit price": 72, "Amount": 72, "Check": 150})
+
+
+def _line_columns(invoice: Any, checks: dict[int, Any]) -> dict[str, list[Any]]:
+    """Columns of the line-items table. The table sits in a half-width column, so Recomputed is
+    shown only where it differs from the stated amount, and a line note is folded into the Item cell."""
+    items = invoice.line_items
+    cur = invoice.currency
+    columns: dict[str, list[Any]] = {
+        "#": [str(i + 1) for i in range(len(items))],
+        "Item": [f"{ln.item} ({ln.note})" if ln.note else ln.item for ln in items],
+        "Qty": [str(ln.quantity) for ln in items],
+        "Unit price": [fmt.money(ln.unit_price, cur) for ln in items],
+        "Amount": [_display(fmt.money(ln.amount, cur) if ln.amount is not None else None) for ln in items],
     }
-    _table(columns, merged, key, "Line items", right=("Qty", "Unit price", "Amount", "Recomputed"))
+    if any(i in checks and checks[i].recomputed_amount != ln.amount for i, ln in enumerate(items)):
+        columns["Recomputed"] = [
+            fmt.money(checks[i].recomputed_amount, cur) if i in checks else "-" for i in range(len(items))
+        ]
+    return columns
 
 
 def _totals_table(result: InvoiceResult, detail: CaseDetail | None, rows: Sequence[FieldRow], key: str) -> None:

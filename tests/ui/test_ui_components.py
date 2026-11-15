@@ -158,3 +158,28 @@ def test_stylesheet_out_ranks_streamlits_list_padding_without_its_generated_clas
     for cls in (".k-kv.k-kv", ".k-meters.k-meters", ".k-legend.k-legend", ".k-src.k-src"):
         assert cls in theme._STYLE + components._BAR_STYLE
     assert len(theme._STYLE.strip().splitlines()) <= 40
+
+
+def _line_cols(items, recomputed):
+    from types import SimpleNamespace as N
+
+    from ui.kit.components import _line_columns
+
+    inv = N(currency="USD", line_items=[N(item=i, quantity=1, unit_price=5, amount=a, note=n) for i, a, n in items])
+    checks = {i: N(recomputed_amount=r) for i, r in enumerate(recomputed)}
+    return _line_columns(inv, checks)
+
+
+def test_line_columns_drop_note_and_recomputed_when_empty_or_equal():
+    cols = _line_cols([("a", 5, None), ("b", 10, "")], [5, 10])
+    assert list(cols) == ["#", "Item", "Qty", "Unit price", "Amount"]
+
+
+def test_line_columns_keep_recomputed_on_mismatch_and_fold_note_into_item():
+    cols = _line_cols([("a", 5, "see <b>x</b>"), ("b", 10, None)], [5, 12])
+    assert "Recomputed" in cols and "Note" not in cols
+    assert cols["Item"] == ["a (see <b>x</b>)", "b"]
+
+
+def test_line_columns_missing_stated_amount_counts_as_mismatch():
+    assert "Recomputed" in _line_cols([("a", None, None)], [5])
