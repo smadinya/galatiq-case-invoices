@@ -92,7 +92,15 @@ def assess_resolution(state: InvoiceState, deps: Deps, fx_rate: Decimal | None) 
     assert amount is not None
     needs_fx = inv.currency.upper() != "USD"
     usd = to_usd(amount, inv.currency, fx_rate)
-    shortfalls = stock_shortfalls(required_quantities(inv, state.dedupe), deps.repo)
+    needed = required_quantities(inv, state.dedupe)
+    shortfalls = stock_shortfalls(needed, deps.repo)
+    stock_needed: dict[str, int] = {}
+    stock_levels: dict[str, int] = {}
+    for key, qty in needed.items():  # required_quantities is keyed by item_key; the ledger uses item names
+        item = deps.repo.get_item_by_key(key)
+        stock_needed[item.item if item else key] = qty
+        if item is not None:
+            stock_levels[item.item] = item.stock
     overspend = max(_ZERO, budget.spent + usd - budget.limit) if usd is not None else _ZERO
     if needs_fx and fx_rate is None:
         outcome = "blocked"
@@ -108,6 +116,7 @@ def assess_resolution(state: InvoiceState, deps: Deps, fx_rate: Decimal | None) 
         budget=budget, overspend_usd=overspend,
         needs_overspend_confirmation=outcome == "pay" and overspend > 0,
         stock_shortfalls=shortfalls, approve_outcome=outcome,
+        stock_needed=stock_needed, stock_levels=stock_levels,
     )
 
 

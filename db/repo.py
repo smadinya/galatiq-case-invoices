@@ -17,7 +17,7 @@ from core.text import vendor_key
 from models import (
     Actor, AliasKind, AuditEntry, BudgetStatus, InventoryItem, InvoiceRecord, InvoiceResult, InvoiceUpdate,
     PaymentRecord, PaymentWrite, QueueItem, QueueStatus, QueueWrite, Receipt, StockLedgerEntry, VendorAlias,
-    VendorRecord, HumanReview,
+    VendorRecord, HumanReview, BudgetLedgerEntry,
 )
 from obs import utc_now
 
@@ -324,8 +324,12 @@ class Repo:
             currency=row["currency"], fx_rate=_dec(row["fx_rate"]), amount_usd=_dec(row["amount_usd"]),
             status=row["status"], attempts=row["attempts"],
             receipt=Receipt.model_validate_json(row["receipt_json"]) if row["receipt_json"] else None,
-            error=row["error"],
+            error=row["error"], created_at=_dts(row["created_at"]), updated_at=_dts(row["updated_at"]),
         )
+
+    def list_payments(self) -> list[PaymentRecord]:
+        rows = self._conn.execute("SELECT * FROM payments ORDER BY id").fetchall()
+        return [self._payment(r) for r in rows]
 
     def get_payment(self, idempotency_key: str) -> PaymentRecord | None:
         row = self._conn.execute("SELECT * FROM payments WHERE idempotency_key=?", (idempotency_key,)).fetchone()
@@ -404,6 +408,19 @@ class Repo:
             "SELECT invoice_id, amount_usd FROM budget_ledger WHERE month=? ORDER BY id", (month,)
         ).fetchall()
         return [(r["invoice_id"], Decimal(r["amount_usd"])) for r in rows]
+
+    def budget_ledger(self, month: str | None = None) -> list[BudgetLedgerEntry]:
+        if month is None:
+            rows = self._conn.execute("SELECT * FROM budget_ledger ORDER BY id").fetchall()
+        else:
+            rows = self._conn.execute("SELECT * FROM budget_ledger WHERE month=? ORDER BY id", (month,)).fetchall()
+        return [
+            BudgetLedgerEntry(
+                id=r["id"], month=r["month"], amount_usd=Decimal(r["amount_usd"]), invoice_id=r["invoice_id"],
+                ts=_dts(r["ts"]),
+            )
+            for r in rows
+        ]
 
     def budget_spent(self, month: str) -> Decimal:
         return sum((amt for _, amt in self.budget_entries(month)), Decimal("0"))

@@ -7,3 +7,7 @@ logs/
 *.db-shm
 __pycache__/
 .pytest_cache/
+data/uploads/
+.screenshots/
+.streamlit/secrets.toml
+ui/.streamlit/secrets.toml

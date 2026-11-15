@@ -16,7 +16,7 @@ Each tier is complete and works without the tiers after it.
 | Tier | Contents |
 |---|---|
 | **1** | LangGraph pipeline, CLI, SQLite state, Grok and replay providers, the recorder, deterministic and replay golden tests, JSONL logs |
-| **2** | Streamlit dashboard (4 pages, §12.2) |
+| **2** | Streamlit dashboard (4 pages, §12.2). **Built.** It shows measured model calls, tokens and time per invoice; the USD cost term arrives with tier 3 (§13, §15). |
 | **3** | Risk score, prompt-injection detection, extra test invoices, cost and metrics, Ollama provider |
 
 The golden **outcomes** (§14.2) hold without tier 3. When tier 3 lands, the expected **flag lists** gain `high_risk_score` and `prompt_injection` where they apply.
@@ -384,12 +384,22 @@ python main.py --reset [--seed demo|readme]
 
 ### 12.2 Streamlit (tier 2)
 
-1. **Process.** Upload a file or pick a sample, then watch the stages run. Extracted fields sit next to the source, with flagged fields highlighted. The VP ⇄ Critic exchange shows as a chat.
-2. **Human queue.** The six reasons only. Each item shows its reason, the recommendation and the evidence. Approve and reject need a note, plus an exchange rate or overspend confirmation when needed.
-3. **Ledger.** Stock and budget over time, and payments.
-4. **Batch and metrics.** Run a folder, see the results table, automation rate, average time and LLM cost per invoice.
+Run it with `uv run streamlit run ui/app.py`. No API key is needed: without one the dashboard replays the committed Grok recording. It uses the same `acme.db` as the CLI, so don't run both at once.
 
----
+**Pages**
+
+1. **Process.** Upload a file or pick a sample, then watch the stages run (Read, Check, Approve, Finish). The case view shows the verdict, the checks that fired, the extracted fields and line items next to the source text with flagged lines highlighted, the VP ⇄ Critic exchange as a chat, and the payment or next step. Uploads are stored by content hash under `data/uploads/<hash>/` (git-ignored). A run continues in the background if you navigate away, and the page picks it up again when you return.
+2. **Review queue.** The six reasons only. Each item shows its reason, the VP's recommendation and the evidence, and a preview of what approving would do (amount paid, stock per item before and after, budget effect). Approve and reject need a note. Approve also needs an exchange rate for foreign currency, or a confirmation for an overspend, when the preview says so.
+3. **Ledger.** Spending against the monthly limit, stock after each payment per item, the payments table (with a CSV download) and the stock movements.
+4. **Batch.** Run a folder or uploaded files, see the results table and a status bar, and open any row as a case. Below it are the measured figures (decided without a person, time, model calls and tokens per invoice) and the savings estimate (§15). A batch can be stopped after the current invoice.
+
+**Sidebar (every page).** The state every run depends on: the provider in use (live Grok or replay of the recording, with the date and model names it was recorded with), the monthly budget as spent and left, and stock against the starting levels. Under them:
+- **Reset demo data**, with a choice of seed (the demo seed, or the brief's starting data).
+- **Run settings:** model provider (Auto, Grok, Replay), bank failure rate, and replay pacing (below).
+
+**Visual rule.** Colour is used only for status, severity and the approval ceiling, and every coloured mark also carries a text label and an icon. Light and dark themes follow the operating system setting. Nothing is decorative.
+
+**Replay pacing.** Replay answers instantly, so the Process page waits briefly after each step to make the stages readable. This is a toggle in Run settings, applies to a single run on the Process page only, and never changes the measured times.
 
 ## 13. Observability and errors
 
@@ -397,6 +407,7 @@ python main.py --reset [--seed demo|readme]
 - **Audit trail:** every business decision is also written to the `audit_log` table.
 - **Crashes:** an unexpected exception in any node gives that invoice status **`ERROR`**. It is logged with the full trace and nothing is paid. The batch continues, and the row shows red in the summary and on the batch page. It does **not** enter the human queue, because it's a bug, not a business decision.
 - **Parse failures** are `unreadable_document` (human), not `ERROR`.
+- **Cost:** tier 2 records model calls, tokens and time per invoice, but `cost_usd` stays null until tier 3 adds prices. Nothing in tier 2 invents a price.
 
 ---
 
@@ -485,14 +496,14 @@ The line items are chosen to fit the stock left at each point.
 
 | Kind | Number | Source |
 |---|---|---|
-| Measured | Automation rate, seconds per invoice, LLM cost per invoice (tokens × configured price) | Batch runs |
+| Measured | Automation rate, seconds per invoice, model calls and tokens per invoice (tier 2). LLM cost per invoice (tokens × configured price) arrives with tier 3. | Batch runs |
 | **Assumption** | Annual volume 20,000 invoices, so $2M per year is a $100 baseline cost per invoice | `config/settings.toml` |
 
 Estimated annual savings are shown as a formula, never as a bare claim:
 
 `volume × automation_rate × baseline_cost_per_invoice − volume × llm_cost_per_invoice`
 
-Assumptions are labelled "assumption" wherever they appear, in the README and in the UI.
+Assumptions are labelled "assumption" wherever they appear, in the README and in the UI. Until tier 3 prices the tokens, the dashboard shows the cost term as pending, with the measured calls and tokens beside it, and the savings figure is labelled "before model costs". Every input of the formula in the Batch page's table is marked as an assumption, a measurement or tier 3.
 
 **Pain points and the design decisions that address them:**
 
@@ -560,3 +571,14 @@ These weren't discussed explicitly. Change any of them freely.
 - **Payment** makes 4 attempts in all (§9). Threshold flags use the stated total; `over_budget` and payment use the payable amount (§9).
 - **2026-11-14: any math_mismatch is rejected (owner's business decision); replaces pay-the-lower-total.** `math_mismatch` is now severity `error`, so the ceiling is REJECT and the VP only writes the memo. 1007 is REJECTED instead of paid $15,525, which frees its stock and budget and removes 1013's `insufficient_stock`. The `lower_total` payment basis is gone and the VP prompt is `vp-v2`.
 - **2026-11-14: 1010 is rejected (owner's decision):** a price above catalog explained only by a note on the invoice line is not accepted.
+
+## 20. Decided while building tier 2 (2026-11-14)
+
+- **Pages live in `ui/views/`, not `ui/pages/`.** A `pages/` folder next to the entry script switches Streamlit into its legacy multipage mode on a fresh server's first deep link.
+- **No as-of control in the UI.** The as-of date is configuration, and changing it mid-session would break the demo. The CLI keeps `--as-of`.
+- **A background job runner with one write lock and a fresh `Service` per job.** Navigating away would otherwise kill a run mid-invoice (Streamlit stops a script at its next call), and two concurrent resolves could each pass the budget check and overspend together.
+- **Reads use short-lived read-only SQLite connections,** including the LangGraph checkpoint, which supplies the document-level detail (extracted fields, source text, transcript). No connection outlives a page run, so a reset from the CLI never leaves the UI reading a deleted file.
+- **Metric definitions.** A person-resolved invoice counts as needing a person, because a person decided it. Duplicates count toward model usage, because they still went through the pipeline. Time excludes stored results (nothing ran) and `ERROR`.
+- **Replay pacing is on the Process page only** and never affects measured times, which come from the real node durations (`usage.node_ms`), not from the pacing delays.
+- **The resolution preview reports per-item stock** (`stock_needed`, `stock_levels` on `ResolutionPreview`), so the queue can show "WidgetA 56 → 44" without the UI repeating the dedupe logic.
+- **The "Human queue" page is titled "Review queue".** The status and the CLI keep "human"; the page uses the word a person at Acme would.
