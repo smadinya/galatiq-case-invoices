@@ -687,6 +687,14 @@ class StockLedgerEntry(BaseModel):
     ts: dt.datetime
 
 
+class BudgetLedgerEntry(BaseModel):
+    id: int
+    month: str  # "2026-01"
+    amount_usd: Decimal
+    invoice_id: int | None
+    ts: dt.datetime
+
+
 class AuditEntry(BaseModel):
     id: int
     trace_id: str
@@ -765,6 +773,8 @@ class PaymentRecord(BaseModel):
     attempts: int
     receipt: Receipt | None = None
     error: str | None = None
+    created_at: dt.datetime | None = None
+    updated_at: dt.datetime | None = None
 
 
 class QueueWrite(BaseModel):
@@ -850,6 +860,8 @@ class ResolutionPreview(BaseModel):
     needs_overspend_confirmation: bool = False
     stock_shortfalls: list[StockShortfall] = Field(default_factory=list)
     approve_outcome: Literal["pay", "credit_due", "reject_stock", "blocked"]
+    stock_needed: dict[str, int] = Field(default_factory=dict)  # item -> quantity approval would deduct
+    stock_levels: dict[str, int] = Field(default_factory=dict)  # current stock for those same items
 
 
 class Banner(BaseModel):
