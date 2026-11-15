@@ -236,3 +236,102 @@ def test_main_does_not_load_dotenv(monkeypatch, run):
     import main as m
 
     assert not hasattr(m, "load_dotenv")
+
+
+# ---------------------------------------------------------------- rejection reason
+
+import datetime as _dt  # noqa: E402
+import io  # noqa: E402
+
+from rich.console import Console  # noqa: E402
+
+from main import Renderer, rejection_reason  # noqa: E402
+from models import (  # noqa: E402
+    BatchResult, BudgetStatus, Ceiling, Decision, FlagCode, HumanResolution, HumanReview,
+    InvoiceResult, Status, make_flag,
+)
+
+
+def _res(file="invoice_x.json", status=Status.REJECTED, number="INV-1", *, by=None, flags=(), clamped=False,
+         human=None, reasoning="because the numbers do not add up at all"):
+    decision = Decision(final=Ceiling.REJECT, by=by, reasoning=reasoning, clamped=clamped) if by else None
+    return InvoiceResult(trace_id="t", file=file, invoice_number=number, status=status, provider="fake",
+                         flags=[make_flag(FlagCode(c), "m") for c in flags], decision=decision, human=human)
+
+
+def _flag_of(sev):
+    from models import FLAG_SEVERITY
+    return next(c.value for c in FlagCode if FLAG_SEVERITY[c] == sev)
+
+
+def test_reason_none_unless_rejected():
+    assert rejection_reason(_res(status=Status.PAID, by="vp")) is None
+    assert rejection_reason(_res(status=Status.PENDING_HUMAN)) is None
+
+
+def test_reason_rules_lists_error_flags_in_order():
+    from models import FLAG_SEVERITY, Severity
+    errs = [c.value for c in FlagCode if FLAG_SEVERITY[c] == Severity.ERROR][:2]
+    esc = _flag_of(Severity.ESCALATION)
+    r = _res(by="rules", flags=[errs[1], esc, errs[0], errs[1]])
+    assert rejection_reason(r) == f"{errs[1]}, {errs[0]}"  # repeated codes are named once
+
+
+def test_reason_vp_and_critic_name_escalation_flags():
+    from models import Severity
+    esc = _flag_of(Severity.ESCALATION)
+    assert rejection_reason(_res(by="vp", flags=[esc])) == f"VP: {esc}"
+    assert rejection_reason(_res(by="vp+critic", flags=[esc])) == f"VP+Critic: {esc}"
+
+
+def test_reason_vp_without_flags_uses_short_reasoning():
+    out = rejection_reason(_res(by="vp", reasoning="x " * 100))
+    assert out.startswith("VP: x x") and len(out) <= 45 and out.endswith("…")
+
+
+def test_reason_clamped_vp():
+    from models import Severity
+    esc = _flag_of(Severity.ESCALATION)
+    assert rejection_reason(_res(by="vp", flags=[esc], clamped=True)) == f"VP: capped to reject ({esc})"
+
+
+def test_reason_deadlock():
+    from models import Severity
+    esc = _flag_of(Severity.ESCALATION)
+    assert rejection_reason(_res(by="deadlock", flags=[esc])) == f"deadlock: {esc}"
+
+
+def _human(outcome, note):
+    res = HumanResolution(action="reject", note=note or "n", resolved_at=_dt.datetime(2026, 1, 1))
+    return HumanReview(reason=FlagCode.MATH_MISMATCH, reasons=[FlagCode.MATH_MISMATCH], outcome=outcome,
+                       outcome_note=note, resolution=res)
+
+
+def test_reason_human_note_and_stock():
+    assert rejection_reason(_res(by="human", human=_human("rejected", "never delivered"))) == \
+        "person: never delivered"
+    assert rejection_reason(_res(by="human", human=_human("rejected_stock", None))) == "person: stock short"
+
+
+@pytest.mark.parametrize("width", [80, 120])
+def test_batch_render_shows_reasons_within_width(width):
+    from models import FLAG_SEVERITY, Severity
+    errs = [c.value for c in FlagCode if FLAG_SEVERITY[c] == Severity.ERROR][:2]
+    esc = _flag_of(Severity.ESCALATION)
+    results = [
+        _res("invoice_1004_revised.json", number="INV-1004", by="rules", flags=errs),
+        _res("invoice_2.json", number="INV-2", by="vp+critic", flags=[esc]),
+        _res("invoice_3.json", number="INV-3", by="human", human=_human("rejected", "vendor never delivered")),
+        _res("invoice_4.json", status=Status.PENDING_HUMAN, number="INV-4"),
+    ]
+    b = BatchResult(results=results, counts={"REJECTED": 3, "PENDING_HUMAN": 1}, distinct_documents=4,
+                    decided_without_person=3, stock={},
+                    budget=BudgetStatus(month="2026-01", limit=D(100), spent=D(0), remaining=D(100)))
+    con = Console(width=width, file=io.StringIO(), color_system=None)
+    Renderer(con).batch(b)
+    out = con.file.getvalue()
+    assert max(len(line) for line in out.splitlines()) <= width
+    flat = "".join(out.split())
+    assert "Reason" in out and "invoice_1004_revised.json" in out and "PENDING_HUMAN" in out
+    for needle in (", ".join(errs), f"VP+Critic: {esc}", "person: vendor never delivered"):
+        assert "".join(needle.split()) in flat
