@@ -10,6 +10,7 @@ dependencies = [
   "pdfplumber==0.11.10",
   "rich==15.0.0",
   "python-dotenv==1.2.4",
+  "streamlit==1.66.1",
 ]
 [dependency-groups]
 dev = ["pytest==9.2.0"]
