@@ -46,8 +46,8 @@ GOLDEN_ROWS: tuple[GoldenRow, ...] = (
     GoldenRow("invoice_1005.json", Status.REJECTED, ("unknown_vendor", "over_threshold"), APPROVE,
               None, "critic", "vp+critic", 1, "no_record", scripted=True),
     GoldenRow("invoice_1006.csv", Status.PAID, (), APPROVE, D("2750.00"), "fast", "vp", 0, "no_record"),
-    GoldenRow("invoice_1007.csv", Status.PAID, ("math_mismatch", "over_threshold"), APPROVE, D("15525.00"),
-              "critic", "vp+critic", 1, "no_record", scripted=True,
+    GoldenRow("invoice_1007.csv", Status.REJECTED, ("math_mismatch", "over_threshold"), REJECT,
+              None, "memo", "rules", 0, "no_record",
               evidence={"math_mismatch": {"difference": "-110.00", "stated_total": "15525.00",
                                           "recomputed_total": "15635.00"}}),
     GoldenRow("invoice_1008.txt", Status.REJECTED,
@@ -69,10 +69,9 @@ GOLDEN_ROWS: tuple[GoldenRow, ...] = (
     GoldenRow("invoice_1012.txt", Status.DUPLICATE, (), None, None, "dup", None, 0, None,
               duplicate_of="invoice_1012.pdf"),
     GoldenRow("invoice_1013.json", Status.REJECTED,
-              ("insufficient_stock", "over_threshold", "price_below_catalog", "math_mismatch"),  # math_mismatch: Q1
+              ("over_threshold", "price_below_catalog", "math_mismatch"),  # stock suffices now that 1007 is rejected
               REJECT, None, "memo", "rules", 0, "verified",
-              evidence={"insufficient_stock": {"item": "GadgetX", "requested": 9, "available": 8},
-                        "math_mismatch": {"difference": "50.00"}}),
+              evidence={"math_mismatch": {"difference": "50.00"}}),
     GoldenRow("invoice_1013.pdf", Status.DUPLICATE, (), None, None, "dup", None, 0, None,
               duplicate_of="invoice_1013.json"),
     GoldenRow("invoice_1014.xml", Status.PENDING_HUMAN, ("foreign_currency",), HUMAN, None,
@@ -89,17 +88,16 @@ GOLDEN_LEDGER = (
     ("invoice_1001.txt",  80, 45, 13, 0, D("5000.00")),
     ("invoice_1004.json", 77, 43, 13, 0, D("6890.00")),
     ("invoice_1006.csv",  72, 40, 13, 0, D("9640.00")),
-    ("invoice_1007.csv",  52, 25, 10, 0, D("25165.00")),
-    ("invoice_1010.txt",  40, 21,  8, 0, D("32350.00")),
-    ("invoice_1011.pdf",  34, 18,  8, 0, D("35350.00")),
-    ("invoice_1015.csv",  24, 13,  6, 0, D("41850.00")),
+    ("invoice_1010.txt",  60, 36, 11, 0, D("16825.00")),
+    ("invoice_1011.pdf",  54, 33, 11, 0, D("19825.00")),
+    ("invoice_1015.csv",  44, 28,  9, 0, D("26325.00")),
 )
 
 GOLDEN_TOTALS = {
-    "counts": {"PAID": 7, "REJECTED": 7, "PENDING_HUMAN": 3, "DUPLICATE": 3},
+    "counts": {"PAID": 6, "REJECTED": 8, "PENDING_HUMAN": 3, "DUPLICATE": 3},
     "distinct_documents": 17,
     "decided_without_person": 14,
-    "spent": D("41850.00"),
+    "spent": D("26325.00"),
     "queue_refs": ("INV-1004 R1", "INV-1012", "INV-1014"),
 }
 
@@ -107,27 +105,20 @@ GOLDEN_TOTALS = {
 # Each step: (ref, action, kwargs, expect). "raises" steps must leave the queue and ledger unchanged.
 POST_BATCH_STEPS = (
     ("INV-1012", "approve", {"note": "Called FastShip on the number on file; rename confirmed"},
-     {"raises": "OverspendConfirmationRequired", "overspend_usd": D("1825.00")}),
-    ("INV-1012", "approve", {"note": "Called FastShip on the number on file; rename confirmed", "confirm_overspend": True},
-     {"status": "PAID", "paid": D("9975.00"), "currency": "USD", "stock": (12, 6, 2, 0), "spent": D("51825.00"),
+     {"status": "PAID", "paid": D("9975.00"), "currency": "USD", "stock": (32, 21, 5, 0), "spent": D("36300.00"),
       "alias": ("QuickShip Distributers", "FastShip Ltd.")}),
     ("INV-1004", "approve", {"note": "PO amendment confirmed"},
-     {"status": "REJECTED", "human_outcome": "rejected_stock",
-      "shortfalls": [{"item": "GadgetX", "needed": 5, "available": 2}],
-      "stock": (12, 6, 2, 0), "spent": D("51825.00")}),
+     {"status": "PAID", "paid": D("4050.00"), "stock": (32, 21, 0, 0), "spent": D("40350.00")}),
     ("INV-1014", "approve", {"note": "Rate from treasury"}, {"raises": "FxRateRequired"}),
     ("INV-1014", "approve", {"note": "Rate from treasury", "fx_rate": D("1.08")},
-     {"raises": "OverspendConfirmationRequired", "overspend_usd": D("6280.00")}),
-    ("INV-1014", "approve", {"note": "Rate from treasury", "fx_rate": D("1.08"), "confirm_overspend": True},
      {"status": "PAID", "paid": D("4125.00"), "currency": "EUR", "fx_rate": D("1.08"), "amount_usd": D("4455.00"),
-      "stock": (8, 0, 2, 0), "spent": D("56280.00")}),
+      "stock": (28, 15, 0, 0), "spent": D("44805.00")}),
 )
 # After the steps: list_queue() is empty.
 
 ALT_ORDER_STEPS = (
-    ("INV-1004", "approve", {"note": "PO amendment confirmed"},          # 41,850 + 4,050 = 45,900: no confirmation needed
-     {"status": "PAID", "paid": D("4050.00"), "stock": (24, 13, 1, 0), "spent": D("45900.00")}),
-    ("INV-1012", "approve", {"note": "Rename confirmed"},
-     {"status": "REJECTED", "human_outcome": "rejected_stock",
-      "shortfalls": [{"item": "GadgetX", "needed": 4, "available": 1}], "stock": (24, 13, 1, 0), "spent": D("45900.00")}),
+    ("INV-1004", "approve", {"note": "PO amendment confirmed"},          # 26,325 + 4,050 = 30,375: no confirmation needed
+     {"status": "PAID", "paid": D("4050.00"), "stock": (44, 28, 4, 0), "spent": D("30375.00")}),
+    ("INV-1012", "approve", {"note": "Rename confirmed"},               # needs 4 GadgetX, 4 left: still enough
+     {"status": "PAID", "paid": D("9975.00"), "stock": (32, 21, 0, 0), "spent": D("40350.00")}),
 )

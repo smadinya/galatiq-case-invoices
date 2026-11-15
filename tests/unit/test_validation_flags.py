@@ -219,7 +219,7 @@ def test_math_mismatch_evidence(run, make_invoice):
     inv = make_invoice(lines=(("WidgetA", 2, "250"),), total="550.00")
     res = run(inv)
     f = flag(res, "math_mismatch")
-    assert f.severity == Severity.ESCALATION
+    assert f.severity == Severity.ERROR
     assert f.evidence["stated_total"] == "550.00"
     assert f.evidence["recomputed_total"] == "500.00"
     assert f.evidence["difference"] == "50.00"
@@ -274,7 +274,7 @@ def test_threshold_uses_stated_total_not_payable(run, make_invoice):
     inv = make_invoice(lines=(("WidgetA", 1, "250"),), total="10500.00")
     res = run(inv)
     assert "over_threshold" in codes(res)
-    assert res.payable_amount == D("250.00")  # lower of stated and recomputed
+    assert res.payable_amount == D("10500.00")  # the stated total
 
 
 def test_negative_total_raises_no_threshold(run, make_invoice):

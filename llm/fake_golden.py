@@ -95,7 +95,7 @@ GOLDEN_EXTRACTIONS: dict[str, ExtractedInvoice] = {
 }
 
 FAST_PATH = ("invoice_1001.txt", "invoice_1004.json", "invoice_1006.csv", "invoice_1011.pdf", "invoice_1015.csv")
-MEMO_ROWS = ("invoice_1002.txt", "invoice_1003.txt", "invoice_1008.txt", "invoice_1009.json",
+MEMO_ROWS = ("invoice_1002.txt", "invoice_1003.txt", "invoice_1008.txt", "invoice_1007.csv", "invoice_1009.json",
              "invoice_1013.json", "invoice_1016.json")
 
 
@@ -116,11 +116,6 @@ def golden_script() -> Script:
            flags=[(FlagCode.UNKNOWN_VENDOR, "Not onboarded and no history; reject.")]),
     ]
     s[("invoice_1005.json", "critic")] = [critic(Verdict.AGREE, R)]
-    # † 1007: math mismatch (-$110) -> approve, pay the lower total; Critic rechecks totals first
-    s[("invoice_1007.csv", "vp")] = [vp(A, "Lines plus 6% tax recompute to $15,635; invoice states $15,525 ($110 short). "
-                                           "Approve and pay the lower stated total.",
-                                        flags=[(FlagCode.MATH_MISMATCH, "Undercharge of $110; pay the lower total $15,525.")])]
-    s[("invoice_1007.csv", "critic")] = [tool_call("call_1007_cr_0", "recompute_totals"), critic(Verdict.AGREE, A)]
     # † 1010: rush line +20% -> Critic objects once, VP answers, Critic agrees (exercises round 2)
     rush = (FlagCode.PRICE_ABOVE_CATALOG, "Rush line WidgetA at $300 vs $250 catalog (+20%) is a labelled rush order.")
     s[("invoice_1010.txt", "vp")] = [

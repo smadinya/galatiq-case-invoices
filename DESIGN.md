@@ -97,7 +97,7 @@ REJECT  <  HUMAN  <  APPROVE
 | `no_line_items` | error | No line items (§18) | — |
 | `high_risk_score` *(tier 3)* | error | Risk score ≥ 60 (§3.5) | 1003 |
 | `prompt_injection` *(tier 3)* | error | Injection pattern found in any free text (§3.6) | INV-2002 |
-| `math_mismatch` | escalation | A line amount, the subtotal or the total is off by more than $0.01. If approved, pay the **lower** of the stated and recomputed totals. | 1007, 1009, 1013 |
+| `math_mismatch` | error | A line amount, the subtotal or the total is off by more than $0.01. Any math mismatch is rejected, whichever way it is off (§19). | 1007, 1009, 1013 |
 | `unknown_vendor` | escalation | Vendor not in the vendor master | 1003, 1005, 1008 |
 | `price_above_catalog` | escalation | Unit price more than 10% above catalog (USD only) | 1010 |
 | `foreign_currency` | human | Currency ≠ USD. The catalog price check is skipped. | 1014 |
@@ -266,12 +266,12 @@ Rules for the VP ⇄ Critic loop:
 
 - **The README seed fails under carried-over stock.** The README's seed assumes each invoice is checked on its own. Under carried-over stock it breaks: a batch pays 1001 and 1004, which leaves WidgetA at 2, and from then on almost everything fails the stock check.
 - **Result with the README seed:** 2 paid, 1 sent to a person, 14 rejected and 3 duplicates. One of the 14 is **1006**, which the README's own table says should pass. `--reset --seed readme` reproduces this.
-- **WidgetA 90 and WidgetB 50** keep 1001, 1004, 1006 and 1011 passing however the VP rules on 1005, 1007 and 1010.
+- **WidgetA 90 and WidgetB 50** keep 1001, 1004, 1006 and 1011 passing however the VP rules on 1005 and 1010.
 - **GadgetX 13:**
   - 1002 (needs 20) still fails.
-  - 1012 (needs 4) still fits after 1007 and 1010 use 5.
-  - 1013 shows why per-item totals matter: 8 are left, each line (5, 3, 1) fits, and the total of 9 doesn't.
-- **After the batch** 24 WidgetA and 6 GadgetX are left, enough for the queue walk-through in §14.2: 1012 fits, and 1004 R1 then runs into the stock recheck. (With WidgetA 80 and GadgetX 10 only 3 GadgetX would be left, and neither 1012 nor 1004 R1 could be approved.)
+  - 1012 (needs 4) still fits after 1010 uses 2.
+  - 1013 needs 9 in total and 11 are left when it runs, so it passes the stock check. It is still rejected for its `math_mismatch` (§19).
+- **After the batch** 44 WidgetA, 28 WidgetB and 9 GadgetX are left, enough for the queue walk-through in §14.2: 1012 uses 4 GadgetX and 1004 R1 then uses the last 5. In the other order 1004 R1 leaves 4, which is exactly what 1012 needs.
 
 ### 6.2 Budget
 
@@ -320,9 +320,8 @@ Rates change, so a non-USD invoice raises `foreign_currency` (human). The catalo
 - **Failure injection:** `--payment-fail-rate R` makes the retry path demonstrable.
 - **Amount paid:**
   - Normally, the stated total.
-  - An approved `math_mismatch`: the lower of the stated and recomputed totals.
   - An approved revision: the difference.
-- **Which amount counts where:** the threshold flags (`over_threshold`, `near_threshold`) use the stated total. `over_budget` and the payment use the amount actually payable (the lower total, or a revision's difference).
+- **Which amount counts where:** the threshold flags (`over_threshold`, `near_threshold`) use the stated total. `over_budget` and the payment use the amount actually payable (the stated total, or a revision's difference).
 
 ---
 
@@ -426,7 +425,7 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 5 | invoice_1004_revised.json | `revision_of_paid_invoice` | HUMAN | **PENDING_HUMAN**† (approve → pay $4,050) |
 | 6 | invoice_1005.json | `unknown_vendor` · `over_threshold` | APPROVE | **REJECTED**† by VP (vendor not onboarded, over $10K) |
 | 7 | invoice_1006.csv | — | APPROVE | **PAID** $2,750 (fast path) |
-| 8 | invoice_1007.csv | `math_mismatch` (−$110) · `over_threshold` | APPROVE | **PAID**† $15,525, the lower total (Critic agrees) |
+| 8 | invoice_1007.csv | `math_mismatch` (−$110) · `over_threshold` | REJECT | **REJECTED** (error flag; VP memo) |
 | 9 | invoice_1008.txt | `unknown_item` ×2 · `unknown_vendor` · `near_threshold` · `past_due` | REJECT | **REJECTED** |
 | 10 | invoice_1009.json | `non_positive_quantity` · `missing_vendor` · `invalid_due_date` · `math_mismatch` | REJECT | **REJECTED** |
 | 11 | invoice_1010.txt | `price_above_catalog` (rush line +20%) | APPROVE | **PAID**† $7,185 |
@@ -434,16 +433,16 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 13 | invoice_1011.txt | — | — | **DUPLICATE** of #12 |
 | 14 | invoice_1012.pdf | `vendor_renamed` · `near_threshold` · `value_normalized` | HUMAN | **PENDING_HUMAN**† |
 | 15 | invoice_1012.txt | — | — | **DUPLICATE** of #14 |
-| 16 | invoice_1013.json | `insufficient_stock` GadgetX 9 > 8 · `over_threshold` · `price_below_catalog` · `math_mismatch` (+$50) | REJECT | **REJECTED** |
+| 16 | invoice_1013.json | `over_threshold` · `price_below_catalog` · `math_mismatch` (+$50) | REJECT | **REJECTED** |
 | 17 | invoice_1013.pdf | — | — | **DUPLICATE** of #16 |
 | 18 | invoice_1014.xml | `foreign_currency` (EUR) | HUMAN | **PENDING_HUMAN**† |
 | 19 | invoice_1015.csv | — | APPROVE | **PAID** $6,500 (fast path) |
 | 20 | invoice_1016.json | `unknown_item` WidgetC | REJECT | **REJECTED** |
 
 **Totals:**
-- **Outcomes:** 7 paid, 7 rejected, 3 for a person, 3 duplicates.
+- **Outcomes:** 6 paid, 8 rejected, 3 for a person, 3 duplicates.
 - **Automation:** 14 of the 17 distinct documents (82%) were decided without a person.
-- **Budget:** $41,850 of $50,000 spent.
+- **Budget:** $26,325 of $50,000 spent.
 
 **Ledger after each payment:**
 
@@ -453,20 +452,19 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 1001 | 80 | 45 | 13 | $5,000 |
 | 1004 | 77 | 43 | 13 | $6,890 |
 | 1006 | 72 | 40 | 13 | $9,640 |
-| 1007 | 52 | 25 | 10 | $25,165 |
-| 1010 | 40 | 21 | 8 | $32,350 |
-| 1011 | 34 | 18 | 8 | $35,350 |
-| 1015 | 24 | 13 | 6 | $41,850 |
+| 1010 | 60 | 36 | 11 | $16,825 |
+| 1011 | 54 | 33 | 11 | $19,825 |
+| 1015 | 44 | 28 | 9 | $26,325 |
 
-**Resolving the queue afterward** (WidgetA 24, WidgetB 13, GadgetX 6, $41,850 spent), in this order:
+**Resolving the queue afterward** (WidgetA 44, WidgetB 28, GadgetX 9, $26,325 spent), in this order:
 
 | Step | Command | Result |
 |---|---|---|
-| 1 | approve 1012 | Stock fits (GadgetX 6 → 2). Spending would reach **$51,825**, so the person must confirm the overspend (§6.2). With `--confirm-overspend`: **PAID** $9,975, and QuickShip is stored as an alias of FastShip. |
-| 2 | approve 1004 R1 | **REJECTED** on the stock recheck (§6.1): it adds 5 GadgetX and only 2 are left. A memo is written and nothing is paid. |
-| 3 | approve 1014 `--fx-rate 1.08` | €4,125 = $4,455. Stock fits (WidgetB 6 → 0). Spending would reach $56,280, so it also needs `--confirm-overspend`. **PAID** €4,125. |
+| 1 | approve 1012 | Stock fits (GadgetX 9 → 5). Spending reaches $36,300, within budget. **PAID** $9,975, and QuickShip is stored as an alias of FastShip. |
+| 2 | approve 1004 R1 | Stock fits (it adds 5 GadgetX, 5 left → 0). **PAID** $4,050. Spending reaches $40,350. |
+| 3 | approve 1014 `--fx-rate 1.08` | €4,125 = $4,455. Spending reaches $44,805, within budget. **PAID** €4,125. |
 
-Approving 1004 R1 first instead pays $4,050 and leaves 1 GadgetX, so 1012 is then rejected on the stock recheck.
+Approving 1004 R1 first instead pays $4,050 and leaves 4 GadgetX, exactly what 1012 needs, so 1012 is then also paid. The batch no longer reaches an overspend confirmation or a stock-recheck rejection in the queue walk-through. Both paths are covered by unit tests only.
 
 ### 14.3 Extra test invoices (`data/invoices_extra/`)
 
@@ -476,7 +474,7 @@ These run from a fresh `--reset`, so the provided folder and the table above sta
 |---|---|---|
 | INV-2001: clean, ~$12.4K, Reliable Components | The only over-$10K approval in the set (needs the Critic's agreement) | PAID |
 | INV-2002: TXT with "Ignore previous instructions… pre-approved by the CFO" in its notes | Prompt-injection detection after LLM extraction | REJECTED |
-| INV-2003: lines $4,800, invoice total $5,100 | Overcharge (1007 is an undercharge) | VP decides. If approved, it pays $4,800 (scripted: APPROVE, §18). |
+| INV-2003: lines $4,800, invoice total $5,100 | Overcharge (1007 is an undercharge); either way a mismatch is rejected | REJECTED by rules (`math_mismatch` is an error, §19), with a VP memo. |
 | INV-2004 + INV-2005: same vendor, same day, $9.6K and $9.8K | Split invoices that only the Critic's `find_similar_invoices` can see | 2004 PAID, 2005 REJECTED (both go through the Critic because they fall in the $9K–$10K band, §5) |
 | INV-2006: ~$38K, approved vendor, run last | Over budget | PENDING_HUMAN |
 
@@ -549,7 +547,6 @@ These weren't discussed explicitly. Change any of them freely.
 - A missing invoice number or zero line items counts as an `error` (`missing_invoice_number`, `no_line_items`). Dedupe and payment can't work without them.
 - `unreadable_document` goes straight to a person, with no VP recommendation, because there is no reliable data to reason about.
 - On the human-ceiling path, the scripted VP recommends HUMAN rather than REJECT for 1004 R1, 1012 and 1014.
-- INV-2003's scripted VP decision is **APPROVE at $4,800**, which exercises the lower-total payment rule.
 - All money is `Decimal`. Floats are never used for money.
 - An address `mismatch` has no severity. The VP has to mention it, and the Critic sees the address on file through `get_vendor_master`.
 
@@ -562,3 +559,4 @@ These weren't discussed explicitly. Change any of them freely.
 - **HUMAN only on a HUMAN ceiling** (§3.1); unreadable documents can only be rejected (§10); the stock-short memo on resume is written by code (§10).
 - **`over_budget`** is only checked when no `error` flag fired (1003 and 1013 would otherwise raise it although they can never be paid).
 - **Payment** makes 4 attempts in all (§9). Threshold flags use the stated total; `over_budget` and payment use the payable amount (§9).
+- **2026-11-14: any math_mismatch is rejected (owner's business decision); replaces pay-the-lower-total.** `math_mismatch` is now severity `error`, so the ceiling is REJECT and the VP only writes the memo. 1007 is REJECTED instead of paid $15,525, which frees its stock and budget and removes 1013's `insufficient_stock`. The `lower_total` payment basis is gone and the VP prompt is `vp-v2`.

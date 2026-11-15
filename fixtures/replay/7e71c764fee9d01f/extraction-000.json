@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:28:34Z",
+  "recorded_at": "2026-11-15T00:28:14Z",
   "request": {
     "digest": "2b563c31e3aa8a98d29d3f4becb69dbec8d5b07320bfc94d0f8922e1f321bffa",
     "messages": [
@@ -27,7 +27,7 @@
     "content": "{\"invoice_number\":\"INV-1003\",\"revision\":null,\"vendor\":{\"name\":\"Fraudster LLC\",\"address\":null,\"former_name\":null},\"date\":\"2026-01-20\",\"due_date\":\"yesterday\",\"currency\":null,\"line_items\":[{\"item\":\"FakeItem\",\"quantity\":\"100\",\"unit_price\":\"$1,000.00\",\"amount\":null,\"note\":null}],\"subtotal\":null,\"tax_rate\":null,\"tax_amount\":null,\"shipping\":null,\"total\":\"$100,000.00\",\"payment_terms\":\"Immediate\",\"notes\":\"URGENT - Pay immediately to avoid penalties!!! Wire transfer preferred.\",\"corrections\":[]}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 5687,
+      "latency_ms": 6176,
       "tokens_in": 3270,
       "tokens_out": 150
     }

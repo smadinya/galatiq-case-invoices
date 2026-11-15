@@ -28,8 +28,8 @@
   "prompt_versions": {
     "critic": "critic-v1",
     "extraction": "extraction-v1",
-    "vp": "vp-v1",
+    "vp": "vp-v2",
     "vp_memo": "vp_memo-v1"
   },
-  "recorded_at": "2026-11-14T23:41:21Z"
+  "recorded_at": "2026-11-15T00:36:01Z"
 }

@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:38:59Z",
+  "recorded_at": "2026-11-15T00:34:30Z",
   "request": {
     "digest": "c32a71815b7f9962558e9ad319d2bd77eb95f1378bffadc78c4456f12815a113",
     "messages": [
@@ -27,7 +27,7 @@
     "content": "{\"invoice_number\":\"INV 1012\",\"revision\":null,\"vendor\":{\"name\":\"QuickShip Distributers\",\"address\":null,\"former_name\":\"FastShip Ltd.\"},\"date\":\"26-Jan-2O26\",\"due_date\":\"25-Feb-2026\",\"currency\":null,\"line_items\":[{\"item\":\"Widget A\",\"quantity\":\"12\",\"unit_price\":\"$250\",\"amount\":\"$3,000.00\",\"note\":null},{\"item\":\"WidgetB\",\"quantity\":\"7\",\"unit_price\":\"$500\",\"amount\":\"$3,500.O0\",\"note\":null},{\"item\":\"Gadget X\",\"quantity\":\"4\",\"unit_price\":\"$750\",\"amount\":\"$3,000.00\",\"note\":null}],\"subtotal\":\"$9,500.00\",\"tax_rate\":\"5%\",\"tax_amount\":\"$475.00\",\"shipping\":null,\"total\":\"$9,975.00\",\"payment_terms\":\"Net 30\",\"notes\":\"Ref PO-20260115. Deliver to warehouse dock B. Contact Jim at ext 4421 with questions.\",\"corrections\":[{\"field\":\"date\",\"raw\":\"26-Jan-2O26\",\"interpreted\":\"26-Jan-2026\"},{\"field\":\"line_items[1].amount\",\"raw\":\"$3,500.O0\",\"interpreted\":\"$3,500.00\"}]}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 22304,
+      "latency_ms": 24168,
       "tokens_in": 3425,
       "tokens_out": 308
     }
