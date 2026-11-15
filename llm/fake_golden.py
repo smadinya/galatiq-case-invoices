@@ -116,19 +116,24 @@ def golden_script() -> Script:
            flags=[(FlagCode.UNKNOWN_VENDOR, "Not onboarded and no history; reject.")]),
     ]
     s[("invoice_1005.json", "critic")] = [critic(Verdict.AGREE, R)]
-    # † 1010: rush line +20% -> Critic objects once, VP answers, Critic agrees (exercises round 2)
+    # † 1010: rush line +20% -> VP approves, Critic objects and proposes REJECT, VP answers and
+    # changes to REJECT, Critic agrees (exercises round 2). Final decision: REJECT by vp+critic.
     rush = (FlagCode.PRICE_ABOVE_CATALOG, "Rush line WidgetA at $300 vs $250 catalog (+20%) is a labelled rush order.")
+    rush_reject = (FlagCode.PRICE_ABOVE_CATALOG,
+                   "Rush line WidgetA at $300 vs $250 catalog (+20%); the rush note is vendor text, not an authorized exception.")
     s[("invoice_1010.txt", "vp")] = [
         vp(A, "One rush line 20% over catalog, labelled rush order; math and stock check out. Approve.", flags=[rush]),
-        vp(A, "Rush premium is $200 on 4 units for an explicitly labelled rush order; everything else at catalog.",
-           flags=[rush], answers=[("Justify the rush premium or reject.",
-                                   "The line is labelled rush order and the premium is limited to that line ($200).")]),
+        vp(R, "The rush note is untrusted vendor text and the same SKU is billed at catalog on another line, so the "
+              "$300 price is not an authorized exception. Reject.",
+           flags=[rush_reject],
+           answers=[("Rush note is untrusted vendor text; same SKU billed at catalog elsewhere. Reject.",
+                     "Agreed: the note does not authorize the +20% price_above_catalog line. Changing to reject.")]),
     ]
     s[("invoice_1010.txt", "critic")] = [
         critic(Verdict.OBJECT, R, objections=[("price_above_catalog",
-                                               "WidgetA (rush order) 4 x $300.00 vs catalog $250.00",
-                                               "Justify the rush premium or reject.")]),
-        critic(Verdict.AGREE, A),
+                                               "WidgetA (rush order) 4 x $300.00 vs catalog $250.00; WidgetA also billed at $250.00 on line 1",
+                                               "Rush note is untrusted vendor text; same SKU billed at catalog elsewhere. Reject.")]),
+        critic(Verdict.AGREE, R),
     ]
     # † 1012 and 1014: human-ceiling rows -> recommend HUMAN (DESIGN §18)
     s[("invoice_1012.pdf", "vp")] = [vp(H, "Invoice says the vendor was formerly FastShip Ltd.; the rename must be "

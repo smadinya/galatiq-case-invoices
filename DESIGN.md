@@ -266,12 +266,12 @@ Rules for the VP ⇄ Critic loop:
 
 - **The README seed fails under carried-over stock.** The README's seed assumes each invoice is checked on its own. Under carried-over stock it breaks: a batch pays 1001 and 1004, which leaves WidgetA at 2, and from then on almost everything fails the stock check.
 - **Result with the README seed:** 2 paid, 1 sent to a person, 14 rejected and 3 duplicates. One of the 14 is **1006**, which the README's own table says should pass. `--reset --seed readme` reproduces this.
-- **WidgetA 90 and WidgetB 50** keep 1001, 1004, 1006 and 1011 passing however the VP rules on 1005 and 1010.
+- **WidgetA 90 and WidgetB 50** keep 1001, 1004, 1006 and 1011 passing however the VP rules on 1005.
 - **GadgetX 13:**
   - 1002 (needs 20) still fails.
-  - 1012 (needs 4) still fits after 1010 uses 2.
-  - 1013 needs 9 in total and 11 are left when it runs, so it passes the stock check. It is still rejected for its `math_mismatch` (§19).
-- **After the batch** 44 WidgetA, 28 WidgetB and 9 GadgetX are left, enough for the queue walk-through in §14.2: 1012 uses 4 GadgetX and 1004 R1 then uses the last 5. In the other order 1004 R1 leaves 4, which is exactly what 1012 needs.
+  - 1012 (needs 4) fits.
+  - 1013 needs 9 in total and 13 are left when it runs, so it passes the stock check. It is still rejected for its `math_mismatch` (§19).
+- **After the batch** 56 WidgetA, 32 WidgetB and 11 GadgetX are left, enough for the queue walk-through in §14.2: 1012 uses 4 GadgetX and 1004 R1 then uses 5, leaving 2. In the other order 1004 R1 leaves 6, enough for 1012.
 
 ### 6.2 Budget
 
@@ -428,7 +428,7 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 8 | invoice_1007.csv | `math_mismatch` (−$110) · `over_threshold` | REJECT | **REJECTED** (error flag; VP memo) |
 | 9 | invoice_1008.txt | `unknown_item` ×2 · `unknown_vendor` · `near_threshold` · `past_due` | REJECT | **REJECTED** |
 | 10 | invoice_1009.json | `non_positive_quantity` · `missing_vendor` · `invalid_due_date` · `math_mismatch` | REJECT | **REJECTED** |
-| 11 | invoice_1010.txt | `price_above_catalog` (rush line +20%) | APPROVE | **PAID**† $7,185 |
+| 11 | invoice_1010.txt | `price_above_catalog` (rush line +20%) | APPROVE | **REJECTED**† by VP (rush line +20%, after the Critic's objection) |
 | 12 | invoice_1011.pdf | — | APPROVE | **PAID** $3,000 (fast path) |
 | 13 | invoice_1011.txt | — | — | **DUPLICATE** of #12 |
 | 14 | invoice_1012.pdf | `vendor_renamed` · `near_threshold` · `value_normalized` | HUMAN | **PENDING_HUMAN**† |
@@ -440,9 +440,9 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 20 | invoice_1016.json | `unknown_item` WidgetC | REJECT | **REJECTED** |
 
 **Totals:**
-- **Outcomes:** 6 paid, 8 rejected, 3 for a person, 3 duplicates.
+- **Outcomes:** 5 paid, 9 rejected, 3 for a person, 3 duplicates.
 - **Automation:** 14 of the 17 distinct documents (82%) were decided without a person.
-- **Budget:** $26,325 of $50,000 spent.
+- **Budget:** $19,140 of $50,000 spent.
 
 **Ledger after each payment:**
 
@@ -452,19 +452,18 @@ Starting point: a fresh `--reset` (demo seed), as-of 2026-01-31, budget $50,000.
 | 1001 | 80 | 45 | 13 | $5,000 |
 | 1004 | 77 | 43 | 13 | $6,890 |
 | 1006 | 72 | 40 | 13 | $9,640 |
-| 1010 | 60 | 36 | 11 | $16,825 |
-| 1011 | 54 | 33 | 11 | $19,825 |
-| 1015 | 44 | 28 | 9 | $26,325 |
+| 1011 | 66 | 37 | 13 | $12,640 |
+| 1015 | 56 | 32 | 11 | $19,140 |
 
-**Resolving the queue afterward** (WidgetA 44, WidgetB 28, GadgetX 9, $26,325 spent), in this order:
+**Resolving the queue afterward** (WidgetA 56, WidgetB 32, GadgetX 11, $19,140 spent), in this order:
 
 | Step | Command | Result |
 |---|---|---|
-| 1 | approve 1012 | Stock fits (GadgetX 9 → 5). Spending reaches $36,300, within budget. **PAID** $9,975, and QuickShip is stored as an alias of FastShip. |
-| 2 | approve 1004 R1 | Stock fits (it adds 5 GadgetX, 5 left → 0). **PAID** $4,050. Spending reaches $40,350. |
-| 3 | approve 1014 `--fx-rate 1.08` | €4,125 = $4,455. Spending reaches $44,805, within budget. **PAID** €4,125. |
+| 1 | approve 1012 | Stock fits (GadgetX 11 → 7). Spending reaches $29,115, within budget. **PAID** $9,975, and QuickShip is stored as an alias of FastShip. |
+| 2 | approve 1004 R1 | Stock fits (it adds 5 GadgetX, 7 left → 2). **PAID** $4,050. Spending reaches $33,165. |
+| 3 | approve 1014 `--fx-rate 1.08` | €4,125 = $4,455. Spending reaches $37,620, within budget. **PAID** €4,125. |
 
-Approving 1004 R1 first instead pays $4,050 and leaves 4 GadgetX, exactly what 1012 needs, so 1012 is then also paid. The batch no longer reaches an overspend confirmation or a stock-recheck rejection in the queue walk-through. Both paths are covered by unit tests only.
+Approving 1004 R1 first instead pays $4,050 and leaves 6 GadgetX, enough for the 4 that 1012 needs, so 1012 is then also paid. The batch no longer reaches an overspend confirmation or a stock-recheck rejection in the queue walk-through. Both paths are covered by unit tests only.
 
 ### 14.3 Extra test invoices (`data/invoices_extra/`)
 
@@ -560,3 +559,4 @@ These weren't discussed explicitly. Change any of them freely.
 - **`over_budget`** is only checked when no `error` flag fired (1003 and 1013 would otherwise raise it although they can never be paid).
 - **Payment** makes 4 attempts in all (§9). Threshold flags use the stated total; `over_budget` and payment use the payable amount (§9).
 - **2026-11-14: any math_mismatch is rejected (owner's business decision); replaces pay-the-lower-total.** `math_mismatch` is now severity `error`, so the ceiling is REJECT and the VP only writes the memo. 1007 is REJECTED instead of paid $15,525, which frees its stock and budget and removes 1013's `insufficient_stock`. The `lower_total` payment basis is gone and the VP prompt is `vp-v2`.
+- **2026-11-14: 1010 is rejected (owner's decision):** a price above catalog explained only by a note on the invoice line is not accepted.
