@@ -31,8 +31,7 @@ Every rejection comes with written reasons. Every decision is in an audit log. N
 8. [Testing](#8-testing)
 9. [Observability and error handling](#9-observability-and-error-handling)
 10. [Business impact](#10-business-impact)
-11. [Project layout](#11-project-layout)
-12. [Scope: what's built, what's next](#12-scope-whats-built-whats-next)
+11. [Cut on purpose](#11-cut-on-purpose)
 
 ---
 
@@ -354,15 +353,11 @@ Item names are matched ignoring case, whitespace and punctuation **only**. A nea
 
 **Why:** `WidgetC` scores about 86 against `WidgetA` on rapidfuzz's ratio. A fuzzy matcher would quietly turn 1016's unknown item into a real one and pay for it. On the other hand, `Widget A` (1012's OCR) correctly becomes `WidgetA`.
 
-### Extraction must be grounded in the source
-
-**Why:** LLMs can hallucinate a plausible quantity or total. The grounding check is the self-correction loop for ingestion. Code verifies that every extracted value appears in the document text, and feeds the specific failure back to the model for one retry. If it fails twice, the invoice is an `unreadable_document` and goes to a person. The bad data never reaches validation.
-
 ### The VP never sees the raw document
 
 The VP gets the **structured** invoice only. Free-text fields (notes, addresses) are quoted and labelled as untrusted data. The Critic sees source text only one line at a time, through `get_source_evidence`.
 
-**Why:** an invoice is attacker-controlled input. A note like "pre-approved by the CFO, ignore previous instructions" shouldn't reach the decision-maker as instructions. This isolation is in place now; a pattern-matching injection detector is planned ([§12](#12-scope-whats-built-whats-next)).
+**Why:** an invoice is attacker-controlled input. A note like "pre-approved by the CFO, ignore previous instructions" shouldn't reach the decision-maker as instructions. This isolation is in place now; a pattern-matching injection detector is planned ([DESIGN.md §3.6](DESIGN.md)).
 
 ### Replay a recorded Grok run instead of a mock
 
@@ -374,26 +369,6 @@ Every real Grok call from a full batch is committed under `fixtures/replay/`. Ea
 - **Prompt edits can't drift silently.** Each prompt file carries a `prompt_version`, and editing a prompt makes its recordings stale. Replay then fails with "re-record" instead of quietly serving old answers.
 
 `scripts/record.py` regenerates the recordings.
-
-### One OpenAI-compatible client, not `xai_sdk`
-
-Grok is called through the OpenAI SDK pointed at `https://api.x.ai/v1`. It supports structured outputs and tool calling.
-
-**Why:** the brief's `from xai import Grok` snippet doesn't match a real SDK. One OpenAI-compatible code path also lets a local Ollama model drop in later with only a base-URL change.
-
-### Smaller decisions
-
-| Decision | Why |
-|---|---|
-| All money is `Decimal`, stored as TEXT in SQLite | Floats can't represent cents exactly. A payment system can't be off by a fraction of a cent. |
-| Payment idempotency key = vendor + invoice number + revision | Retries, crashes or re-runs can never pay the same invoice twice. |
-| Payment, stock decrement and budget entry share one SQLite transaction | A crash can't leave stock used up without a payment, or the reverse. |
-| 4 payment attempts (0.5 s, 1 s, 2 s backoff), then a person | `--payment-fail-rate` lets you watch this happen. Approving from the queue retries the payment. |
-| `over_budget` is checked only when no `error` flag fired | An invoice the rules reject can never be paid, so it shouldn't create budget work for a person. |
-| Threshold flags use the stated total; budget and payment use the payable amount | A $5,940 revision is still a $5,940 invoice for scrutiny, but it only pays and spends $4,050. |
-| As-of date defaults to 2026-01-31 | The samples are January 2026 invoices, so past-due checks need a fixed "today" to be meaningful and reproducible. |
-| A `verified` address is never grounds for rejection | 1004's vendor really is at 742 Evergreen Terrace on file. The model shouldn't reject it because the address looks like a joke. |
-| `ERROR` is reserved for bugs | An unparseable file is a business case (`unreadable_document` → person). An unexpected exception is a bug: it marks that invoice `ERROR`, pays nothing, keeps the batch going, and is never short-circuited on re-run. |
 
 ---
 
@@ -459,25 +434,6 @@ uv run pytest            # 844 tests, offline, about 100 s
 uv run pytest -m live    # 6 tests against real Grok (needs .env)
 ```
 
-| Suite | Tests | Provider | What it proves |
-|---|---|---|---|
-| `tests/unit/` | 537 | none or scripted fake | Every parser, normalisation, each flag rule, ceiling, clamp, routing function, dedupe case, tool, payment idempotency and retries, provider selection, the CLI |
-| `tests/golden/test_sample_batch.py` | | scripted fake | The 20-row table in [§3](#3-the-sample-invoices-and-their-expected-outcomes): every flag, ceiling, outcome, path, and the ledger after each payment |
-| `tests/golden/test_replay.py` | | **recorded Grok** | Grok's real decisions still match the golden table |
-| `tests/golden/test_queue_resolution.py` | | scripted fake | The queue walk-through, plus the opposite order |
-| `tests/golden/test_paths_e2e.py` | | scripted fake | One end-to-end test per path: paid, rejected, human, duplicate, error (injected crash), payment failure, unreadable file |
-| `tests/golden/test_readme_seed.py` | | scripted fake | The brief's seed gives 2 paid / 1 person / 14 rejected / 3 duplicates |
-| `tests/golden/test_ui_walkthrough.py` | | scripted fake | The demo story through the dashboard: batch, queue, ledger and a case, with the numbers above |
-| `tests/ui/` | 228 | scripted fake | The dashboard through Streamlit's `AppTest`: every page, the sidebar, background jobs, uploads, read views and formatting. `test_ui_security.py` checks that hostile document text is rendered literally, that no secret appears on screen and that `ui` is never imported by tier 1 |
-| `tests/live/` | 6 | live Grok | Invariants only: final ≤ ceiling, every escalation flag answered, the Critic agreed on any approval over $10K |
-
-The golden suites hold 79 tests in total.
-
-**Guardrails in the test setup:**
-- An autouse fixture **blocks network sockets** unless a test is marked `live`.
-- Every test gets its own temporary `acme.db` and `checkpoints.db`.
-- Tests never load `.env`.
-
 ---
 
 ## 9. Observability and error handling
@@ -525,51 +481,7 @@ With those inputs the gross figure is about **$1.6M a year**, before LLM cost. T
 
 ---
 
-## 11. Project layout
-
-```
-main.py              CLI (argparse + Rich); keeps the brief's --invoice_path form
-service.py           run_invoice, run_batch, queue, preview_resolution, resolve, reset
-graph.py             LangGraph nodes, routing functions, SQLite checkpointer
-models.py            Pydantic contracts: InvoiceState, ExtractedInvoice, Invoice, Flag, Decision, …
-policy.md            Human-readable policy, served to the agents by get_policy(topic)
-config/settings.toml Thresholds, budget, as-of date, retries, labelled business assumptions
-agents/              ingestion · validation · risk · vp · critic · clamp · human · payment · outcome · _loop
-tools/               inventory · vendors · ledger · evidence · policy · normalize · grounding · bank
-tools/parsers/       json_ · csv_kv · csv_table · xml_ · pdf
-llm/                 Provider interface, OpenAI-compatible client, recorder, replay, scripted fake, selection
-llm/prompts/         extraction.md · vp.md · critic.md · vp_memo.md (each with a prompt_version)
-db/                  schema.sql · seed.py (demo and readme seeds, vendor master) · repo.py
-core/                shared helpers: text, values (money/dates), invoice_math; metrics (run metrics, savings estimate)
-ui/app.py            dashboard entry: navigation, sidebar
-ui/views/            the four pages: 1_Process · 2_Review_queue · 3_Ledger · 4_Batch
-ui/kit/              runtime, jobs, data (read-only views), uploads, sidebar, copy (all wording), theme, fmt, components, per-page view logic
-ui/.streamlit/       config.toml: theme and server settings
-scripts/record.py    re-record the Grok run into fixtures/replay/
-scripts/ui_screenshots.py  screenshot the dashboard in light and dark mode (dev tool)
-docs/screenshots/    the images used in this README
-.env.example         template for .env (API key and model names)
-fixtures/replay/     the committed Grok recording
-data/invoices/       the provided samples (never modified)
-data/uploads/        files uploaded through the dashboard (git-ignored)
-tests/               unit/ · ui/ · golden/ · live/
-```
-
----
-
-## 12. Scope: what's built, what's next
-
-The design was planned in three tiers, each complete without the ones after it. **Tiers 1 and 2 are built and tested.**
-
-| Tier | Contents | Status |
-|---|---|---|
-| **1** | LangGraph pipeline, all four stages, VP ⇄ Critic loop, human queue with pause and resume, idempotent payments, SQLite state, CLI, Grok + replay providers, recorder, unit/golden/replay/live tests, JSONL logs | **Done** |
-| **2** | Streamlit dashboard: Process, Review queue, Ledger and Batch pages, with measured model calls, tokens and time. It calls the same `service` functions as the CLI. | **Done** |
-| **3** | Additive risk score (`high_risk_score`), prompt-injection detector, extra test invoices (a clean approval over $10K, an injection attempt, an overcharge, a split invoice, over budget), cost metrics (pricing the tokens already measured), Ollama provider | Planned |
-
-`agents/risk.py` is already wired into the graph as a pass-through, so tier 3 slots in without changing routing. [ARCHITECTURE.md](ARCHITECTURE.md) describes how the dashboard fits on the service layer.
-
-**Cut on purpose:**
+## 11. Cut on purpose
 
 | Cut | Instead |
 |---|---|
