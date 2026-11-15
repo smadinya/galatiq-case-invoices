@@ -54,15 +54,36 @@ uv run python main.py --invoice_path=data/invoices/invoice_1001.txt
 uv run python main.py --invoice_path=data/invoices/invoice_1001.txt --json   # one JSON object, nothing else
 ```
 
-**Using live Grok instead of the recording:** put these in a `.env` file at the repo root. The recording was made with `grok-4.7` for both.
+### Live Grok: setting up `.env`
 
-```dotenv
-XAI_API_KEY=...
-GROK_EXTRACTION_MODEL=grok-4.7
-GROK_REASONING_MODEL=grok-4.7
+You don't need a `.env` file to run the samples. Without a key, the system replays the committed Grok recording. To call Grok live, copy the template and add your xAI API key:
+
+```bash
+cp .env.example .env
+# then edit .env and set XAI_API_KEY
 ```
 
-With a key present, Grok is used automatically. `--provider replay` forces the recording.
+The template already sets the model names the recording was made with:
+
+```dotenv
+XAI_API_KEY=xai-...              # your key; leave empty to use the recording
+GROK_EXTRACTION_MODEL=grok-4.7   # reads TXT and PDF invoices
+GROK_REASONING_MODEL=grok-4.7    # shared by the VP and the Critic
+```
+
+| Variable | Needed for | Notes |
+|---|---|---|
+| `XAI_API_KEY` | Live Grok | Leave it empty to use the recording. |
+| `GROK_EXTRACTION_MODEL` | Live Grok | No default in code: model names come only from the environment. |
+| `GROK_REASONING_MODEL` | Live Grok | One model for both the VP and the Critic, with different prompts. |
+| `ACME_UI_PROVIDER` | Dashboard, optional | `grok` or `replay` as the dashboard's starting provider. Unset means automatic. |
+| `ACME_SETTINGS` | Dashboard, optional | Path to another `settings.toml`, for example to point the dashboard at a scratch database. |
+
+**How it's used:**
+- `main.py`, `scripts/record.py` and the dashboard read `.env` from the repo root when they start. A variable already set in your shell takes precedence over the file.
+- Once a key is set, Grok is used automatically, and every run's banner shows which provider ran. `--provider replay` forces the recording, as does choosing Replay under the dashboard's Run settings.
+- The test suite never loads `.env`. Only `uv run pytest -m live` reads the key from it.
+- `.env` is git-ignored, so the key never reaches the repo. `.env.example` contains no secrets.
 
 > **State carries over between runs.** Stock, budget and history live in `acme.db`, just as they would in production. Every run prints a banner with the provider, remaining stock and budget. Run `--reset` to start fresh.
 
