@@ -56,8 +56,7 @@ Nothing else creates human work. A VP and Critic deadlock results in REJECT, not
 
 ## math
 
-- Line amounts, the subtotal, tax and the total are recomputed. A difference of more than $0.01 raises `math_mismatch` (escalation).
-- If a math_mismatch invoice is approved, pay the lower of the stated and recomputed totals.
+- Line amounts, the subtotal, tax and the total are recomputed. A difference of more than $0.01 raises `math_mismatch` (error). The invoice is rejected by rules.
 - Negative or zero quantities raise `non_positive_quantity` (error).
 
 ## stock
@@ -100,7 +99,7 @@ Nothing else creates human work. A VP and Critic deadlock results in REJECT, not
 - Payment uses the idempotency key vendor + invoice number + revision; a repeat call returns the existing receipt.
 - A failed payment is retried 3 times after the first attempt (4 attempts in all) with backoff of 0.5, 1 and 2 seconds.
 - If all attempts fail, the invoice raises `payment_failed` (human). Approving it in the queue retries the payment.
-- The amount paid is the stated total; for an approved math_mismatch the lower of the stated and recomputed totals; for an approved revision, the difference.
+- The amount paid is the stated total; for an approved revision, the difference.
 
 ## untrusted-data
 

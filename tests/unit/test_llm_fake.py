@@ -84,11 +84,10 @@ def test_golden_script_shape():
     for key in [
         ("invoice_1004_revised.json", "vp"), ("invoice_1004_revised.json", "critic"),
         ("invoice_1005.json", "vp"), ("invoice_1005.json", "critic"),
-        ("invoice_1007.csv", "vp"), ("invoice_1007.csv", "critic"),
         ("invoice_1010.txt", "vp"), ("invoice_1010.txt", "critic"),
         ("invoice_1012.pdf", "vp"), ("invoice_1012.pdf", "critic"),
         ("invoice_1014.xml", "vp"), ("invoice_1014.xml", "critic"),
-        ("invoice_1002.txt", "vp_memo"), ("invoice_1013.json", "vp_memo"),
+        ("invoice_1002.txt", "vp_memo"), ("invoice_1013.json", "vp_memo"), ("invoice_1007.csv", "vp_memo"),
     ]:
         assert key in script, key
     assert len(script[("invoice_1010.txt", "vp")]) == 2 and len(script[("invoice_1010.txt", "critic")]) == 2

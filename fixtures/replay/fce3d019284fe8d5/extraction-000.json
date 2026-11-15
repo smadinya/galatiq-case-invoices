@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:37:14Z",
+  "recorded_at": "2026-11-15T00:32:39Z",
   "request": {
     "digest": "be88ded7c9896f6db6cd911889b8596ce251be1e31324992f1644d1f8a48be9d",
     "messages": [
@@ -27,7 +27,7 @@
     "content": "{\"invoice_number\":\"INV-1011\",\"revision\":null,\"vendor\":{\"name\":\"Summit Manufacturing Co.\",\"address\":null,\"former_name\":null},\"date\":\"2026-01-20\",\"due_date\":\"2026-02-20\",\"currency\":null,\"line_items\":[{\"item\":\"WidgetA\",\"quantity\":\"6\",\"unit_price\":\"$250.00\",\"amount\":\"$1,500.00\",\"note\":null},{\"item\":\"WidgetB\",\"quantity\":\"3\",\"unit_price\":\"$500.00\",\"amount\":\"$1,500.00\",\"note\":null}],\"subtotal\":\"$3,000.00\",\"tax_rate\":\"0%\",\"tax_amount\":\"$0.00\",\"shipping\":null,\"total\":\"$3,000.00\",\"payment_terms\":\"Net 30\",\"notes\":null,\"corrections\":[]}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 5039,
+      "latency_ms": 4165,
       "tokens_in": 3319,
       "tokens_out": 192
     }

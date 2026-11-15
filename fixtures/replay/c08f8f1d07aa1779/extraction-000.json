@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:28:16Z",
+  "recorded_at": "2026-11-15T00:28:00Z",
   "request": {
     "digest": "067c5b7f2c1e206bac14a54fc8fb8710650c8154e688a70e1be5983bd0a8c41b",
     "messages": [
@@ -27,7 +27,7 @@
     "content": "{\"invoice_number\":\"1002\",\"revision\":null,\"vendor\":{\"name\":\"Gadgets Co.\",\"address\":null,\"former_name\":null},\"date\":\"Jan 30 2026\",\"due_date\":\"2026-01-30\",\"currency\":null,\"line_items\":[{\"item\":\"GadgetX\",\"quantity\":\"20\",\"unit_price\":\"$750\",\"amount\":null,\"note\":null}],\"subtotal\":null,\"tax_rate\":null,\"tax_amount\":null,\"shipping\":null,\"total\":\"$15,000.00\",\"payment_terms\":\"Net 30\",\"notes\":null,\"corrections\":[]}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 19852,
+      "latency_ms": 19877,
       "tokens_in": 3257,
       "tokens_out": 139
     }

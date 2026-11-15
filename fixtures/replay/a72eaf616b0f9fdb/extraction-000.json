@@ -8,7 +8,7 @@
   },
   "model": "grok-4.7",
   "provider": "grok",
-  "recorded_at": "2026-11-14T23:35:16Z",
+  "recorded_at": "2026-11-15T00:30:34Z",
   "request": {
     "digest": "bf303722bb27266de527c2f7fd2c7942d0d8117d7d425dbcd427a5ec6295a0ac",
     "messages": [
@@ -27,7 +27,7 @@
     "content": "{\"invoice_number\":\"INV-1008\",\"revision\":null,\"vendor\":{\"name\":\"NoProd Industries\",\"address\":null,\"former_name\":null},\"date\":\"2026-01-10\",\"due_date\":\"2026-01-20\",\"currency\":null,\"line_items\":[{\"item\":\"SuperGizmo\",\"quantity\":\"12\",\"unit_price\":\"$400.00\",\"amount\":null,\"note\":null},{\"item\":\"MegaSprocket\",\"quantity\":\"6\",\"unit_price\":\"$850.00\",\"amount\":null,\"note\":null}],\"subtotal\":null,\"tax_rate\":null,\"tax_amount\":null,\"shipping\":null,\"total\":\"$9,900.00\",\"payment_terms\":null,\"notes\":\"Please process at your earliest convenience.\",\"corrections\":[]}",
     "tool_calls": [],
     "usage": {
-      "latency_ms": 18891,
+      "latency_ms": 19522,
       "tokens_in": 3336,
       "tokens_out": 178
     }

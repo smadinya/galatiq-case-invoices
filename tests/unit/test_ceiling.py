@@ -21,7 +21,7 @@ def f(code):
         (Ceiling.APPROVE, [], D("9000.01"), True),
         (Ceiling.APPROVE, [], None, True),
         (Ceiling.HUMAN, [f(FlagCode.FOREIGN_CURRENCY)], D("100"), True),
-        (Ceiling.APPROVE, [f(FlagCode.MATH_MISMATCH)], D("100"), True),
+        (Ceiling.APPROVE, [f(FlagCode.PRICE_ABOVE_CATALOG)], D("100"), True),
         (Ceiling.APPROVE, [f(FlagCode.UNKNOWN_VENDOR)], D("100"), True),
         (Ceiling.APPROVE, [f(FlagCode.PRICE_ABOVE_CATALOG)], D("100"), True),
         (Ceiling.APPROVE, [f(FlagCode.PAST_DUE), f(FlagCode.PRICE_BELOW_CATALOG)], D("100"), False),
